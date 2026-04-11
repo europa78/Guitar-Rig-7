@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>GUITAR RIG — Web</title>
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="icon">G</div>
+      GUITAR RIG
+    </div>
+
+    <!-- (1) Main menu -->
+    <div class="hdr-group">
+      <button class="hdr-btn" id="mainMenuBtn" title="Main menu">
+        <svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="1.5"/><rect x="2" y="7.25" width="12" height="1.5"/><rect x="2" y="11.5" width="12" height="1.5"/></svg>
+      </button>
+      <!-- (2) Browser toggle -->
+      <button class="hdr-btn active" id="browserToggleBtn" title="Show/hide Browser">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2.5" width="12" height="11" rx="1"/><line x1="6" y1="2.5" x2="6" y2="13.5"/></svg>
+      </button>
+      <!-- (3) Info/Sidebar toggle -->
+      <button class="hdr-btn active" id="sidebarToggleBtn" title="Show/hide Sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2.5" width="12" height="11" rx="1"/><line x1="10" y1="2.5" x2="10" y2="13.5"/></svg>
+      </button>
+    </div>
+
+    <div class="hdr-divider"></div>
+
+    <!-- (4) View size -->
+    <div class="view-size" title="View size">
+      <button id="zoomOutBtn">−</button>
+      <div class="pct" id="zoomPct">100%</div>
+      <button id="zoomInBtn">+</button>
+    </div>
+
+    <div class="hdr-divider"></div>
+
+    <!-- (5) Input selector — L / Stereo / R per manual -->
+    <div class="in-sel" title="Input configuration">
+      <button data-in="L" title="Left Input (mono)">L</button>
+      <button data-in="ST" class="active" title="Stereo Input">
+        <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="7" cy="6" r="4"/>
+          <circle cx="13" cy="6" r="4"/>
+        </svg>
+      </button>
+      <button data-in="R" title="Right Input (mono)">R</button>
+    </div>
+
+    <!-- (6) Input Level -->
+    <div class="level-section">
+      <div class="lbl">IN</div>
+      <div class="level-knob" id="inLevelKnob"><div class="level-knob-ind"></div></div>
+      <div class="level-meter"><canvas id="inMeter"></canvas></div>
+      <div class="clip-dot" id="inClip"></div>
+    </div>
+
+    <!-- (7)(8)(9) Gate section -->
+    <div class="gate-section">
+      <button class="gate-on-btn" id="gateOnBtn" title="Gate on/off">GT</button>
+      <button class="learn-btn" id="learnBtn" title="Threshold Learn">LEARN</button>
+      <div class="level-knob" id="gateThreshKnob" title="Gate Threshold"><div class="level-knob-ind"></div></div>
+    </div>
+
+    <!-- Preset display (center) -->
+    <div class="preset-display">
+      <button class="preset-nav" id="prevPreset">‹</button>
+      <div class="preset-box" id="presetName">Wide Stereo Bass</div>
+      <button class="preset-nav" id="nextPreset">›</button>
+    </div>
+
+    <!-- (10) Output Level -->
+    <div class="level-section">
+      <div class="lbl">OUT</div>
+      <div class="level-knob" id="outLevelKnob"><div class="level-knob-ind"></div></div>
+      <div class="level-meter"><canvas id="outMeter"></canvas></div>
+      <div class="clip-dot" id="outClip"></div>
+    </div>
+
+    <!-- (11) Limit -->
+    <button class="limit-btn" id="limitBtn" title="Output limiter">LIMIT</button>
+
+    <!-- (12) CPU Load -->
+    <div class="cpu-meter" title="Audio engine CPU load">CPU <span id="cpuVal">0.0</span>%</div>
+
+    <!-- (13) Audio Engine On/Off -->
+    <button class="power-btn active" id="powerBtn" title="Audio engine on/off">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <path d="M5 3 A5 5 0 1 0 11 3"/>
+        <line x1="8" y1="2" x2="8" y2="8"/>
+      </svg>
+    </button>
+
+    <!-- (14) NI Logo -->
+    <button class="ni-logo" id="niLogo" title="About Guitar Rig">NI</button>
+  </div>
+
+  <!-- Main menu with cascading submenus -->
+  <div class="main-menu" id="mainMenu">
+    <div class="main-menu-item has-sub" data-sub="fileSub">File</div>
+    <div class="main-menu-item has-sub" data-sub="editSub">Edit</div>
+    <div class="main-menu-item has-sub" data-sub="helpSub">Help</div>
+  </div>
+  <div class="submenu" id="fileSub">
+    <div class="main-menu-item" data-action="new-preset">New Preset <span class="kb">Ctrl+N</span></div>
+    <div class="main-menu-item" data-action="open-preset">Open Preset... <span class="kb">Ctrl+O</span></div>
+    <div class="main-menu-item" data-action="save-preset">Save Preset <span class="kb">Ctrl+S</span></div>
+    <div class="main-menu-item" data-action="save-preset-as">Save Preset As... <span class="kb">Ctrl+Shift+S</span></div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="import-preset">Import Preset...</div>
+    <div class="main-menu-item" data-action="export-preset">Export Preset...</div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="preferences">Preferences...</div>
+  </div>
+  <div class="submenu" id="editSub">
+    <div class="main-menu-item" data-action="undo">Undo <span class="kb">Ctrl+Z</span></div>
+    <div class="main-menu-item" data-action="redo">Redo <span class="kb">Ctrl+Y</span></div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="cut">Cut Component <span class="kb">Ctrl+X</span></div>
+    <div class="main-menu-item" data-action="copy">Copy Component <span class="kb">Ctrl+C</span></div>
+    <div class="main-menu-item" data-action="paste">Paste Component <span class="kb">Ctrl+V</span></div>
+    <div class="main-menu-item" data-action="delete">Delete Component <span class="kb">Del</span></div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="select-all">Select All <span class="kb">Ctrl+A</span></div>
+    <div class="main-menu-item" data-action="clear-rack">Clear Rack</div>
+  </div>
+  <div class="submenu" id="helpSub">
+    <div class="main-menu-item" data-action="native-access">Open Native Access</div>
+    <div class="main-menu-item" data-action="manual">Open Manual</div>
+    <div class="main-menu-item" data-action="kb">NI Knowledge Base</div>
+    <div class="main-menu-item" data-action="product">Product Page</div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="about">About Guitar Rig</div>
+  </div>
+
+  <!-- Preferences dialog -->
+  <div class="dialog-overlay" id="prefsDialog">
+    <div class="dialog">
+      <div class="dialog-header">
+        <div class="dialog-title">PREFERENCES</div>
+        <button class="dialog-close" data-close>✕</button>
+      </div>
+      <div class="dialog-body">
+        <h4>AUDIO ENGINE</h4>
+        <div class="row"><span>Context state</span><strong id="prefCtxState">—</strong></div>
+        <div class="row"><span>Sample rate</span><strong id="prefSampleRate">—</strong></div>
+        <div class="row"><span>Base latency</span><strong id="prefBaseLat">—</strong></div>
+        <div class="row"><span>Output latency</span><strong id="prefOutLat">—</strong></div>
+
+        <h4>BUFFER</h4>
+        <div class="row"><span>AudioWorklet block size</span><strong>128 samples</strong></div>
+        <div class="row"><span>Input configuration</span><strong id="prefInConfig">Stereo</strong></div>
+
+        <h4>PROCESSING</h4>
+        <div class="row"><span>Oversampling</span><strong>4× (waveshapers)</strong></div>
+        <div class="row"><span>Param smoothing</span><strong>10 ms</strong></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="dialog-btn" data-close>Cancel</button>
+        <button class="dialog-btn primary" data-close>OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- About dialog -->
+  <div class="dialog-overlay" id="aboutDialog">
+    <div class="dialog">
+      <div class="dialog-header">
+        <div class="dialog-title">ABOUT</div>
+        <button class="dialog-close" data-close>✕</button>
+      </div>
+      <div class="dialog-body">
+        <div class="about-logo">GUITAR RIG</div>
+        <div class="about-sub">WEB EDITION · v0.1.0</div>
+
+        <h4>CREDITS</h4>
+        <div class="row"><span>Inspired by</span><strong>Native Instruments Guitar Rig</strong></div>
+        <div class="row"><span>Audio engine</span><strong>Web Audio API + AudioWorklet</strong></div>
+        <div class="row"><span>UI</span><strong>Vanilla JS + Canvas</strong></div>
+
+        <h4>USER DETAILS</h4>
+        <div class="row"><span>License type</span><strong>Open source</strong></div>
+        <div class="row"><span>Serial number</span><strong>WEB-0000-0000-0000</strong></div>
+
+        <p style="margin-top:16px; color: var(--text-mute); font-size: 10px; text-align: center;">
+          Built with cutting-edge web audio technology.<br>
+          Low-latency DSP runs entirely in the browser.
+        </p>
+      </div>
+      <div class="dialog-footer">
+        <button class="dialog-btn primary" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- BROWSER -->
+    <div class="browser">
+      <div class="browser-tabs">
+        <button class="browser-tab active">PRESETS</button>
+        <button class="browser-tab">COMPONENTS</button>
+      </div>
+      <div class="browser-search">
+        <input type="text" placeholder="🔍 Search..." />
+      </div>
+      <div class="browser-filters" id="colorFilters"></div>
+      <div class="browser-categories">
+        <div class="browser-cat">Input Sources</div>
+        <div class="browser-cat">FX Types</div>
+        <div class="browser-cat">Characters</div>
+        <div class="browser-cat">Amplifiers</div>
+        <div class="browser-cat">Genres</div>
+        <div class="browser-cat">Artists</div>
+        <div class="browser-cat active">Content</div>
+      </div>
+      <div class="browser-list" id="presetList"></div>
+      <div class="browser-footer">142 Presets</div>
+    </div>
+
+    <!-- RACK -->
+    <div class="rack-wrap">
+      <div class="rack-zoom" id="rackZoom">
+      <div class="rack" id="rack">
+
+        <!-- Input source bar -->
+        <div class="input-source">
+          <div class="input-source-label">INPUT</div>
+          <select id="inputSource">
+            <option value="none">— None —</option>
+            <option value="mic">Microphone</option>
+            <option value="file">Audio File</option>
+          </select>
+          <button class="file-btn" id="loadFileBtn">Load File...</button>
+          <input type="file" id="fileInput" accept="audio/*" />
+          <div class="transport">
+            <button id="playBtn">▶</button>
+            <button id="stopBtn">■</button>
+            <button id="loopBtn">⟲</button>
+          </div>
+        </div>
+
+        <div class="section-label">RACK — SIGNAL PATH ▼</div>
+        <!-- Main rack components will be injected here -->
+        <div id="compContainer"></div>
+
+        <div class="section-label global">GLOBAL FX</div>
+        <!-- Global FX components injected here -->
+        <div id="globalFxContainer"></div>
+
+      </div>
+      </div>
+      <!-- Rack size drag handle -->
+      <div class="rack-size-tooltip" id="rackSizeTooltip">Rack Size: 100%</div>
+      <div class="rack-size-handle" id="rackSizeHandle" title="Drag to resize rack">⇕</div>
+    </div>
+    <!-- SIGNAL FLOW -->
+    <div class="signal-flow">
+      <div class="sf-title">SIGNAL FLOW</div>
+      <!-- (2) Sidebar Input Selector (mirrors header) -->
+      <div class="sf-input-bar">
+        <div class="in-sel" id="sfInSel" title="Input configuration">
+          <button data-in="L" title="Left Input">L</button>
+          <button data-in="ST" class="active" title="Stereo Input">
+            <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.4">
+              <circle cx="7" cy="6" r="4"/>
+              <circle cx="13" cy="6" r="4"/>
+            </svg>
+          </button>
+          <button data-in="R" title="Right Input">R</button>
+        </div>
+      </div>
+      <div class="sf-list" id="sfList">
+        <div class="sf-io">IN</div>
+        <div class="sf-arrow">▼</div>
+        <div id="sfBlocks"></div>
+        <div class="sf-arrow">▼</div>
+        <div class="sf-io">OUT</div>
+        <!-- Master mute -->
+        <button class="sf-mute-btn" id="sfMuteBtn" title="Mute master output">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3 6 L3 10 L6 10 L10 13 L10 3 L6 6 Z"/>
+            <path d="M12 5 Q14 8 12 11" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sf-info" id="sfInfo">
+        <button class="sf-info-toggle" id="sfInfoToggle" title="Expand/Collapse Info pane">▾</button>
+        <a class="sf-info-title" id="sfInfoTitle">Guitar Rig</a>
+        <div class="sf-info-body" id="sfInfoBody">
+          Select a Component to see details. Hover over any control to see what it does.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

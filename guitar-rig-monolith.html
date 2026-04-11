@@ -1,0 +1,3462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>GUITAR RIG — Web</title>
+<style>
+  :root {
+    --bg-0: #0a0a0b;
+    --bg-1: #141416;
+    --bg-2: #1c1c1f;
+    --bg-3: #252529;
+    --bg-4: #2e2e33;
+    --border: #3a3a40;
+    --border-hot: #4a4a52;
+    --text: #e4e4e7;
+    --text-dim: #8a8a92;
+    --text-mute: #5a5a62;
+    --accent: #ffb020;
+    --accent-hot: #ffcc40;
+    --red: #ff4444;
+    --green: #44dd66;
+    --blue: #4aa3ff;
+    --knob: #1a1a1d;
+    --rack-size: 1;  /* 0.6 compact .. 1.4 spacious */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg-0);
+    color: var(--text);
+    font-size: 12px;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  input { font-family: inherit; }
+
+  /* ============ APP LAYOUT ============ */
+  .app {
+    display: grid;
+    grid-template-rows: 44px 1fr;
+    height: 100vh;
+    background: #000;
+  }
+
+  /* ============ HEADER ============ */
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    background: linear-gradient(180deg, #1a1a1e, #0f0f12);
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    position: relative;
+  }
+  .logo {
+    font-weight: 900;
+    letter-spacing: 1px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 6px;
+    border-right: 1px solid var(--border);
+    height: 100%;
+    padding-right: 12px;
+    margin-right: 4px;
+  }
+  .logo .icon {
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg, var(--accent), #cc7a00);
+    border-radius: 4px;
+    display: grid; place-items: center;
+    font-size: 11px; color: #000; font-weight: 900;
+  }
+
+  /* Header icon button group */
+  .hdr-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .hdr-btn {
+    width: 28px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    color: var(--text-dim);
+    border-radius: 3px;
+    font-size: 13px;
+    background: transparent;
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .hdr-btn:hover { color: var(--text); background: var(--bg-2); }
+  .hdr-btn.active { color: var(--accent); background: var(--bg-2); border-color: var(--border); }
+  .hdr-btn svg { width: 16px; height: 16px; }
+  .hdr-divider {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+
+  /* Zoom size indicator */
+  .view-size {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px;
+  }
+  .view-size button {
+    width: 18px; height: 18px;
+    display: grid; place-items: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1;
+  }
+  .view-size button:hover { color: var(--accent); }
+  .view-size .pct {
+    font-size: 9px;
+    color: var(--text-dim);
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Input selector (L/R/stereo) */
+  .in-sel {
+    display: flex;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .in-sel button {
+    padding: 4px 7px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-mute);
+    letter-spacing: 0.5px;
+    min-width: 22px;
+    display: grid;
+    place-items: center;
+  }
+  .in-sel button svg { width: 18px; height: 11px; display: block; }
+  .in-sel button.active {
+    color: var(--accent);
+    background: var(--bg-3);
+    box-shadow: inset 0 0 0 1px var(--border-hot);
+  }
+  .in-sel button:hover:not(.active) { color: var(--text); }
+
+  /* Level meter section */
+  .level-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 6px;
+  }
+  .level-section .lbl {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-mute);
+    letter-spacing: 0.5px;
+  }
+  .level-meter {
+    width: 90px;
+    height: 10px;
+    background: #050507;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+  }
+  .level-meter canvas { width: 100%; height: 100%; display: block; }
+
+  /* Gate section */
+  .gate-section {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 6px;
+  }
+  .gate-on-btn {
+    width: 18px; height: 18px;
+    display: grid; place-items: center;
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-mute);
+    letter-spacing: 0.5px;
+  }
+  .gate-on-btn.active { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px rgba(255,176,32,0.4); }
+  .learn-btn {
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    padding: 3px 7px;
+    border-radius: 2px;
+    font-size: 8px;
+    color: var(--text-dim);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .learn-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .learn-btn.learning { color: var(--red); border-color: var(--red); animation: pulse 0.8s infinite; }
+  @keyframes pulse { 50% { opacity: 0.5; } }
+
+  /* Limit button */
+  .limit-btn {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 5px 9px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-mute);
+    letter-spacing: 0.5px;
+  }
+  .limit-btn.active { color: var(--accent); border-color: var(--accent); background: var(--bg-3); }
+
+  /* Power & NI */
+  .power-btn {
+    width: 28px;
+    height: 26px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: grid; place-items: center;
+    color: var(--text-mute);
+  }
+  .power-btn svg { width: 14px; height: 14px; }
+  .power-btn.active { color: var(--green); border-color: #2a5a3a; box-shadow: 0 0 6px rgba(68,221,102,0.3); }
+
+  .ni-logo {
+    width: 30px;
+    height: 26px;
+    background: linear-gradient(180deg, #1e1e22, #0a0a0c);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: grid; place-items: center;
+    font-weight: 900;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+    letter-spacing: -1px;
+  }
+  .ni-logo:hover { color: var(--accent); border-color: var(--accent); }
+
+  .clip-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #400;
+    flex-shrink: 0;
+    transition: background 0.1s;
+  }
+  .clip-dot.clipping { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  .level-knob {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #3a3a42, #0a0a0c 70%);
+    position: relative;
+    cursor: ns-resize;
+    border: 1px solid #000;
+    flex-shrink: 0;
+  }
+  .level-knob::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #2a2a30, #0f0f12);
+  }
+  .level-knob-ind {
+    position: absolute;
+    top: 2px;
+    left: 50%;
+    width: 1.5px;
+    height: 5px;
+    background: var(--accent);
+    transform-origin: 50% 9px;
+    border-radius: 1px;
+    box-shadow: 0 0 3px var(--accent);
+    pointer-events: none;
+  }
+
+  .preset-display {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    min-width: 200px;
+  }
+  .preset-box {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 5px 16px;
+    border-radius: 3px;
+    min-width: 220px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .preset-nav { color: var(--text-dim); font-size: 14px; padding: 4px 8px; }
+  .preset-nav:hover { color: var(--accent); }
+  .cpu-meter {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Main menu dropdown */
+  .main-menu, .submenu {
+    position: absolute;
+    background: var(--bg-2);
+    border: 1px solid var(--border-hot);
+    border-radius: 4px;
+    min-width: 200px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    z-index: 100;
+    padding: 4px 0;
+    display: none;
+  }
+  .main-menu { top: 44px; left: 10px; }
+  .main-menu.open, .submenu.open { display: block; }
+  .main-menu-item {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+  }
+  .main-menu-item:hover { background: var(--bg-3); color: var(--text); }
+  .main-menu-item.disabled { color: var(--text-mute); cursor: default; }
+  .main-menu-item.disabled:hover { background: transparent; color: var(--text-mute); }
+  .main-menu-item.has-sub::after {
+    content: '›';
+    font-size: 14px;
+    color: var(--text-mute);
+    margin-left: 10px;
+  }
+  .main-menu-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .main-menu-item .kb {
+    font-size: 9px;
+    color: var(--text-mute);
+    font-family: monospace;
+    margin-left: 16px;
+  }
+
+  /* Dialog overlay */
+  .dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    backdrop-filter: blur(3px);
+  }
+  .dialog-overlay.open { display: flex; }
+  .dialog {
+    background: linear-gradient(180deg, #1e1e22, #141416);
+    border: 1px solid var(--border-hot);
+    border-radius: 6px;
+    min-width: 420px;
+    max-width: 560px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    overflow: hidden;
+  }
+  .dialog-header {
+    padding: 14px 18px;
+    background: linear-gradient(180deg, #2a2a30, #1a1a1e);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dialog-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+  .dialog-close {
+    color: var(--text-dim);
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 4px;
+  }
+  .dialog-close:hover { color: var(--red); }
+  .dialog-body {
+    padding: 20px;
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .dialog-body h4 {
+    color: var(--accent);
+    font-size: 10px;
+    letter-spacing: 1px;
+    margin: 12px 0 6px 0;
+    font-weight: 700;
+  }
+  .dialog-body h4:first-child { margin-top: 0; }
+  .dialog-body .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px dotted var(--border);
+    color: var(--text-dim);
+  }
+  .dialog-body .row strong { color: var(--text); }
+  .dialog-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    background: #0a0a0c;
+  }
+  .dialog-btn {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    padding: 6px 16px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text);
+  }
+  .dialog-btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+  .dialog-btn:hover { border-color: var(--accent); }
+
+  /* About dialog — NI branding */
+  .about-logo {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    font-style: italic;
+    background: linear-gradient(135deg, var(--accent), #cc7a00);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .about-sub {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  /* ============ MAIN LAYOUT ============ */
+  .main {
+    display: grid;
+    grid-template-columns: 240px 1fr 200px;
+    gap: 0;
+    overflow: hidden;
+    transition: grid-template-columns 0.2s ease;
+  }
+  .main.no-browser { grid-template-columns: 0 1fr 200px; }
+  .main.no-sidebar { grid-template-columns: 240px 1fr 0; }
+  .main.no-browser.no-sidebar { grid-template-columns: 0 1fr 0; }
+  .browser, .signal-flow {
+    transition: opacity 0.15s ease;
+  }
+  .main.no-browser .browser { opacity: 0; pointer-events: none; }
+  .main.no-sidebar .signal-flow { opacity: 0; pointer-events: none; }
+
+  /* Zoom via CSS transform on rack */
+  .rack-zoom {
+    transform-origin: top center;
+    transition: transform 0.15s ease;
+  }
+
+  /* ============ BROWSER (LEFT) ============ */
+  .browser {
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .browser-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .browser-tab {
+    flex: 1;
+    padding: 10px;
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-align: center;
+    border-bottom: 2px solid transparent;
+  }
+  .browser-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .browser-search {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .browser-search input {
+    width: 100%;
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+  .browser-search input::placeholder { color: var(--text-mute); }
+  .browser-filters {
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .color-tag {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .browser-categories {
+    border-bottom: 1px solid var(--border);
+  }
+  .browser-cat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--bg-2);
+    cursor: pointer;
+  }
+  .browser-cat:hover { background: var(--bg-2); color: var(--text); }
+  .browser-cat.active { color: var(--accent); background: var(--bg-2); }
+  .browser-cat::after { content: '›'; transform: rotate(90deg); opacity: 0.5; }
+  .browser-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .preset-item {
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .preset-item:hover { background: var(--bg-2); color: var(--text); }
+  .preset-item.active {
+    background: var(--bg-3);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+  .browser-footer {
+    padding: 6px 12px;
+    border-top: 1px solid var(--border);
+    font-size: 9px;
+    color: var(--text-mute);
+    text-align: center;
+  }
+
+  /* ============ RACK (CENTER) ============ */
+  .rack-wrap {
+    background: #000;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .rack-wrap::-webkit-scrollbar { width: 10px; }
+  .rack-wrap::-webkit-scrollbar-track { background: var(--bg-0); }
+  .rack-wrap::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 5px; }
+
+  /* Rack size drag handle (bottom-right of rack) */
+  .rack-size-handle {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 24px;
+    height: 24px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: ns-resize;
+    color: var(--text-mute);
+    z-index: 50;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    font-size: 12px;
+    font-weight: 700;
+    user-select: none;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .rack-size-handle:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .rack-size-handle.dragging {
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(255,176,32,0.5);
+  }
+  .rack-size-tooltip {
+    position: absolute;
+    right: 44px;
+    bottom: 14px;
+    background: var(--bg-3);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .rack-size-tooltip.show { opacity: 1; }
+  .rack {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: calc(10px * var(--rack-size));
+    min-height: 100%;
+  }
+  .rack-empty {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    color: var(--text-mute);
+    font-size: 12px;
+  }
+  .rack-drop-hint {
+    padding: 16px;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    text-align: center;
+    color: var(--text-mute);
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  /* Section divider for Rack / Global FX split */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 2px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-mute);
+    font-weight: 700;
+  }
+  .section-label::before,
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+  }
+  .section-label.global::before,
+  .section-label.global::after {
+    background: linear-gradient(90deg, transparent, #5a8aff33, transparent);
+  }
+  .section-label.global { color: #6aa3ff; }
+
+  /* Component base */
+  .comp {
+    background: linear-gradient(180deg, #212126, #17171a);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: border-color 0.15s;
+  }
+  .comp.dragging { opacity: 0.4; }
+  .comp.drag-over { border-color: var(--accent); }
+  .comp-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    background: linear-gradient(180deg, #2a2a30, #1e1e22);
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    cursor: grab;
+  }
+  .comp-header:active { cursor: grabbing; }
+  .comp-name {
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+  .comp-preset {
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--bg-0);
+    padding: 3px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+  .comp-spacer { flex: 1; }
+  .comp-btn {
+    width: 18px; height: 18px;
+    display: grid; place-items: center;
+    color: var(--text-dim);
+    border-radius: 2px;
+    font-size: 11px;
+  }
+  .comp-btn:hover { background: var(--bg-3); color: var(--text); }
+  .comp-btn.onoff {
+    color: var(--green);
+    font-size: 10px;
+  }
+  .comp-btn.onoff.off {
+    color: var(--text-mute);
+  }
+  .comp-btn.onoff svg { width: 12px; height: 12px; }
+
+  /* Mono/Stereo toggle */
+  .comp-ms {
+    display: flex;
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-right: 4px;
+  }
+  .comp-ms button {
+    padding: 2px 6px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-mute);
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+  }
+  .comp-ms button.active {
+    color: var(--accent);
+    background: var(--bg-3);
+  }
+  .comp-ms button:hover:not(.active) { color: var(--text); }
+
+  /* A disabled/off component dims and its signal flow block shows strike */
+  .comp.off .comp-body { opacity: 0.35; filter: grayscale(0.7); pointer-events: auto; }
+  .comp.off .comp-header { opacity: 0.7; }
+  .comp-body {
+    padding: calc(14px * var(--rack-size)) 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  /* Knob */
+  .knob-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .knob {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #3a3a42, #0a0a0c 70%);
+    position: relative;
+    cursor: ns-resize;
+    border: 1px solid #000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.1);
+  }
+  .knob::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #2a2a30, #0f0f12);
+    border: 1px solid #000;
+  }
+  .knob-indicator {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    width: 2px;
+    height: 10px;
+    background: var(--accent);
+    transform-origin: 50% 20px;
+    border-radius: 1px;
+    box-shadow: 0 0 4px var(--accent);
+    pointer-events: none;
+  }
+  .knob-arc {
+    position: absolute;
+    inset: -3px;
+    pointer-events: none;
+  }
+  .knob-label {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .knob-value {
+    font-size: 9px;
+    color: var(--text-mute);
+    font-variant-numeric: tabular-nums;
+  }
+  .knob.large { width: 58px; height: 58px; }
+  .knob.large .knob-indicator { transform-origin: 50% 25px; }
+
+  /* Slider */
+  .slider-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .slider {
+    width: 26px;
+    height: 84px;
+    background: linear-gradient(180deg, #0a0a0c, #18181c);
+    border-radius: 3px;
+    position: relative;
+    border: 1px solid #000;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+    cursor: ns-resize;
+  }
+  .slider-track {
+    position: absolute;
+    left: 50%;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--bg-3);
+    transform: translateX(-50%);
+  }
+  .slider-thumb {
+    position: absolute;
+    left: 50%;
+    width: 20px;
+    height: 14px;
+    background: linear-gradient(180deg, #4a4a52, #1e1e22);
+    border: 1px solid #000;
+    border-radius: 2px;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .slider-thumb::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 3px; right: 3px;
+    height: 1px;
+    background: var(--accent);
+    transform: translateY(-50%);
+  }
+
+  /* GR Meter */
+  .gr-meter {
+    width: 120px; height: 48px;
+    background: #050507;
+    border: 1px solid #000;
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+  }
+  .gr-meter canvas { width: 100%; height: 100%; display: block; }
+  .gr-label {
+    position: absolute;
+    top: 3px; left: 5px;
+    font-size: 8px;
+    color: var(--text-mute);
+    letter-spacing: 0.5px;
+  }
+
+  /* EQ (Bass Pro) */
+  .eq-sliders {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Cab display */
+  .cab-display {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .cab-icon {
+    width: 64px; height: 64px;
+    background: radial-gradient(circle, #2a2a30, #0a0a0c);
+    border: 2px solid #000;
+    border-radius: 50%;
+    position: relative;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+  }
+  .cab-icon::before {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    background: repeating-radial-gradient(circle, #1a1a1e 0 1px, #0a0a0c 1px 3px);
+    border: 1px solid #000;
+  }
+  .cab-icon::after {
+    content: '';
+    position: absolute;
+    inset: 20px;
+    background: radial-gradient(circle, #3a3a42, #0a0a0c);
+    border-radius: 50%;
+    border: 1px solid #000;
+  }
+
+  /* Tuner */
+  .tuner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+  }
+  .tuner-display {
+    background: #050507;
+    border: 1px solid #000;
+    border-radius: 4px;
+    padding: 10px 20px;
+    min-width: 140px;
+    text-align: center;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+  }
+  .tuner-note {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--accent);
+    font-family: 'SF Mono', Menlo, monospace;
+    line-height: 1;
+  }
+  .tuner-cents {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tuner-meter {
+    flex: 1;
+    height: 40px;
+    background: #050507;
+    border: 1px solid #000;
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tuner-meter canvas { width: 100%; height: 100%; display: block; }
+
+  /* Input source section */
+  .input-source {
+    background: linear-gradient(180deg, #1e1e22, #141416);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 4px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .input-source-label {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .input-source select {
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-family: inherit;
+  }
+  .input-source input[type=file] { display: none; }
+  .file-btn {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .file-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .transport {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .transport button {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 2px;
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 26px;
+  }
+  .transport button.active { color: var(--accent); border-color: var(--accent); }
+
+  /* ============ SIGNAL FLOW (RIGHT) ============ */
+  .signal-flow {
+    background: var(--bg-1);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sf-title {
+    padding: 10px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .sf-input-bar {
+    display: flex;
+    justify-content: center;
+    padding: 8px 10px 4px;
+  }
+  .sf-input-bar .in-sel {
+    transform: scale(0.9);
+  }
+  .sf-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .sf-io {
+    width: 60px;
+    padding: 6px;
+    text-align: center;
+    font-size: 9px;
+    color: var(--text-mute);
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+  .sf-arrow {
+    color: var(--text-mute);
+    font-size: 14px;
+    line-height: 1;
+  }
+  .sf-block {
+    width: 100px;
+    padding: 10px 4px;
+    background: linear-gradient(180deg, #2a2a30, #1a1a1e);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .sf-block:hover { border-color: var(--accent); }
+  .sf-block.selected {
+    border-color: var(--accent);
+    background: linear-gradient(180deg, #3a2f1a, #1a1410);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(255,176,32,0.3);
+  }
+  .sf-block.bypassed { opacity: 0.4; }
+  .sf-block.bypassed::after {
+    content: '';
+    position: absolute;
+    left: 10%; right: 10%; top: 50%;
+    height: 1px;
+    background: var(--text-mute);
+  }
+
+  /* Master mute button in signal flow */
+  .sf-mute-btn {
+    width: 32px;
+    height: 32px;
+    margin-top: 4px;
+    display: grid;
+    place-items: center;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .sf-mute-btn:hover { color: var(--text); border-color: var(--border-hot); }
+  .sf-mute-btn.muted {
+    color: var(--red);
+    border-color: var(--red);
+    box-shadow: 0 0 8px rgba(255,68,68,0.4);
+  }
+  .sf-mute-btn svg { width: 16px; height: 16px; }
+
+  .sf-info {
+    border-top: 1px solid var(--border);
+    padding: 12px;
+    min-height: 120px;
+    max-height: 40%;
+    overflow-y: auto;
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    position: relative;
+    transition: min-height 0.2s, max-height 0.2s, padding 0.2s;
+  }
+  .sf-info.collapsed {
+    min-height: 28px;
+    max-height: 28px;
+    padding: 6px 12px;
+    overflow: hidden;
+  }
+  .sf-info.collapsed .sf-info-body { display: none; }
+  .sf-info.collapsed .sf-info-title { font-size: 10px; }
+
+  .sf-info-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    color: var(--text-mute);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 10px;
+    z-index: 2;
+    transition: transform 0.2s;
+  }
+  .sf-info-toggle:hover { color: var(--accent); border-color: var(--accent); }
+  .sf-info.collapsed .sf-info-toggle { transform: rotate(180deg); }
+  .sf-info-title {
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    border-bottom: 1px dotted transparent;
+    transition: border-color 0.15s;
+  }
+  .sf-info-title:hover {
+    border-bottom-color: var(--accent);
+  }
+  .sf-info-title::before {
+    content: '↗ ';
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .sf-info-title:hover::before { opacity: 0.6; }
+  .sf-info-control {
+    color: var(--accent-hot);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    margin-bottom: 3px;
+  }
+  .sf-info-body {
+    color: var(--text-dim);
+  }
+  .sf-info-body strong { color: var(--text); }
+  .sf-info::-webkit-scrollbar { width: 6px; }
+  .sf-info::-webkit-scrollbar-track { background: var(--bg-0); }
+  .sf-info::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 3px; }
+
+  /* Selected component highlight in rack */
+  .comp.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 4px 12px rgba(255,176,32,0.2);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-3);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 11px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="icon">G</div>
+      GUITAR RIG
+    </div>
+
+    <!-- (1) Main menu -->
+    <div class="hdr-group">
+      <button class="hdr-btn" id="mainMenuBtn" title="Main menu">
+        <svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="1.5"/><rect x="2" y="7.25" width="12" height="1.5"/><rect x="2" y="11.5" width="12" height="1.5"/></svg>
+      </button>
+      <!-- (2) Browser toggle -->
+      <button class="hdr-btn active" id="browserToggleBtn" title="Show/hide Browser">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2.5" width="12" height="11" rx="1"/><line x1="6" y1="2.5" x2="6" y2="13.5"/></svg>
+      </button>
+      <!-- (3) Info/Sidebar toggle -->
+      <button class="hdr-btn active" id="sidebarToggleBtn" title="Show/hide Sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2.5" width="12" height="11" rx="1"/><line x1="10" y1="2.5" x2="10" y2="13.5"/></svg>
+      </button>
+    </div>
+
+    <div class="hdr-divider"></div>
+
+    <!-- (4) View size -->
+    <div class="view-size" title="View size">
+      <button id="zoomOutBtn">−</button>
+      <div class="pct" id="zoomPct">100%</div>
+      <button id="zoomInBtn">+</button>
+    </div>
+
+    <div class="hdr-divider"></div>
+
+    <!-- (5) Input selector — L / Stereo / R per manual -->
+    <div class="in-sel" title="Input configuration">
+      <button data-in="L" title="Left Input (mono)">L</button>
+      <button data-in="ST" class="active" title="Stereo Input">
+        <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="7" cy="6" r="4"/>
+          <circle cx="13" cy="6" r="4"/>
+        </svg>
+      </button>
+      <button data-in="R" title="Right Input (mono)">R</button>
+    </div>
+
+    <!-- (6) Input Level -->
+    <div class="level-section">
+      <div class="lbl">IN</div>
+      <div class="level-knob" id="inLevelKnob"><div class="level-knob-ind"></div></div>
+      <div class="level-meter"><canvas id="inMeter"></canvas></div>
+      <div class="clip-dot" id="inClip"></div>
+    </div>
+
+    <!-- (7)(8)(9) Gate section -->
+    <div class="gate-section">
+      <button class="gate-on-btn" id="gateOnBtn" title="Gate on/off">GT</button>
+      <button class="learn-btn" id="learnBtn" title="Threshold Learn">LEARN</button>
+      <div class="level-knob" id="gateThreshKnob" title="Gate Threshold"><div class="level-knob-ind"></div></div>
+    </div>
+
+    <!-- Preset display (center) -->
+    <div class="preset-display">
+      <button class="preset-nav" id="prevPreset">‹</button>
+      <div class="preset-box" id="presetName">Wide Stereo Bass</div>
+      <button class="preset-nav" id="nextPreset">›</button>
+    </div>
+
+    <!-- (10) Output Level -->
+    <div class="level-section">
+      <div class="lbl">OUT</div>
+      <div class="level-knob" id="outLevelKnob"><div class="level-knob-ind"></div></div>
+      <div class="level-meter"><canvas id="outMeter"></canvas></div>
+      <div class="clip-dot" id="outClip"></div>
+    </div>
+
+    <!-- (11) Limit -->
+    <button class="limit-btn" id="limitBtn" title="Output limiter">LIMIT</button>
+
+    <!-- (12) CPU Load -->
+    <div class="cpu-meter" title="Audio engine CPU load">CPU <span id="cpuVal">0.0</span>%</div>
+
+    <!-- (13) Audio Engine On/Off -->
+    <button class="power-btn active" id="powerBtn" title="Audio engine on/off">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <path d="M5 3 A5 5 0 1 0 11 3"/>
+        <line x1="8" y1="2" x2="8" y2="8"/>
+      </svg>
+    </button>
+
+    <!-- (14) NI Logo -->
+    <button class="ni-logo" id="niLogo" title="About Guitar Rig">NI</button>
+  </div>
+
+  <!-- Main menu with cascading submenus -->
+  <div class="main-menu" id="mainMenu">
+    <div class="main-menu-item has-sub" data-sub="fileSub">File</div>
+    <div class="main-menu-item has-sub" data-sub="editSub">Edit</div>
+    <div class="main-menu-item has-sub" data-sub="helpSub">Help</div>
+  </div>
+  <div class="submenu" id="fileSub">
+    <div class="main-menu-item" data-action="new-preset">New Preset <span class="kb">Ctrl+N</span></div>
+    <div class="main-menu-item" data-action="open-preset">Open Preset... <span class="kb">Ctrl+O</span></div>
+    <div class="main-menu-item" data-action="save-preset">Save Preset <span class="kb">Ctrl+S</span></div>
+    <div class="main-menu-item" data-action="save-preset-as">Save Preset As... <span class="kb">Ctrl+Shift+S</span></div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="import-preset">Import Preset...</div>
+    <div class="main-menu-item" data-action="export-preset">Export Preset...</div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="preferences">Preferences...</div>
+  </div>
+  <div class="submenu" id="editSub">
+    <div class="main-menu-item" data-action="undo">Undo <span class="kb">Ctrl+Z</span></div>
+    <div class="main-menu-item" data-action="redo">Redo <span class="kb">Ctrl+Y</span></div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="cut">Cut Component <span class="kb">Ctrl+X</span></div>
+    <div class="main-menu-item" data-action="copy">Copy Component <span class="kb">Ctrl+C</span></div>
+    <div class="main-menu-item" data-action="paste">Paste Component <span class="kb">Ctrl+V</span></div>
+    <div class="main-menu-item" data-action="delete">Delete Component <span class="kb">Del</span></div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="select-all">Select All <span class="kb">Ctrl+A</span></div>
+    <div class="main-menu-item" data-action="clear-rack">Clear Rack</div>
+  </div>
+  <div class="submenu" id="helpSub">
+    <div class="main-menu-item" data-action="native-access">Open Native Access</div>
+    <div class="main-menu-item" data-action="manual">Open Manual</div>
+    <div class="main-menu-item" data-action="kb">NI Knowledge Base</div>
+    <div class="main-menu-item" data-action="product">Product Page</div>
+    <div class="main-menu-sep"></div>
+    <div class="main-menu-item" data-action="about">About Guitar Rig</div>
+  </div>
+
+  <!-- Preferences dialog -->
+  <div class="dialog-overlay" id="prefsDialog">
+    <div class="dialog">
+      <div class="dialog-header">
+        <div class="dialog-title">PREFERENCES</div>
+        <button class="dialog-close" data-close>✕</button>
+      </div>
+      <div class="dialog-body">
+        <h4>AUDIO ENGINE</h4>
+        <div class="row"><span>Context state</span><strong id="prefCtxState">—</strong></div>
+        <div class="row"><span>Sample rate</span><strong id="prefSampleRate">—</strong></div>
+        <div class="row"><span>Base latency</span><strong id="prefBaseLat">—</strong></div>
+        <div class="row"><span>Output latency</span><strong id="prefOutLat">—</strong></div>
+
+        <h4>BUFFER</h4>
+        <div class="row"><span>AudioWorklet block size</span><strong>128 samples</strong></div>
+        <div class="row"><span>Input configuration</span><strong id="prefInConfig">Stereo</strong></div>
+
+        <h4>PROCESSING</h4>
+        <div class="row"><span>Oversampling</span><strong>4× (waveshapers)</strong></div>
+        <div class="row"><span>Param smoothing</span><strong>10 ms</strong></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="dialog-btn" data-close>Cancel</button>
+        <button class="dialog-btn primary" data-close>OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- About dialog -->
+  <div class="dialog-overlay" id="aboutDialog">
+    <div class="dialog">
+      <div class="dialog-header">
+        <div class="dialog-title">ABOUT</div>
+        <button class="dialog-close" data-close>✕</button>
+      </div>
+      <div class="dialog-body">
+        <div class="about-logo">GUITAR RIG</div>
+        <div class="about-sub">WEB EDITION · v0.1.0</div>
+
+        <h4>CREDITS</h4>
+        <div class="row"><span>Inspired by</span><strong>Native Instruments Guitar Rig</strong></div>
+        <div class="row"><span>Audio engine</span><strong>Web Audio API + AudioWorklet</strong></div>
+        <div class="row"><span>UI</span><strong>Vanilla JS + Canvas</strong></div>
+
+        <h4>USER DETAILS</h4>
+        <div class="row"><span>License type</span><strong>Open source</strong></div>
+        <div class="row"><span>Serial number</span><strong>WEB-0000-0000-0000</strong></div>
+
+        <p style="margin-top:16px; color: var(--text-mute); font-size: 10px; text-align: center;">
+          Built with cutting-edge web audio technology.<br>
+          Low-latency DSP runs entirely in the browser.
+        </p>
+      </div>
+      <div class="dialog-footer">
+        <button class="dialog-btn primary" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- BROWSER -->
+    <div class="browser">
+      <div class="browser-tabs">
+        <button class="browser-tab active">PRESETS</button>
+        <button class="browser-tab">COMPONENTS</button>
+      </div>
+      <div class="browser-search">
+        <input type="text" placeholder="🔍 Search..." />
+      </div>
+      <div class="browser-filters" id="colorFilters"></div>
+      <div class="browser-categories">
+        <div class="browser-cat">Input Sources</div>
+        <div class="browser-cat">FX Types</div>
+        <div class="browser-cat">Characters</div>
+        <div class="browser-cat">Amplifiers</div>
+        <div class="browser-cat">Genres</div>
+        <div class="browser-cat">Artists</div>
+        <div class="browser-cat active">Content</div>
+      </div>
+      <div class="browser-list" id="presetList"></div>
+      <div class="browser-footer">142 Presets</div>
+    </div>
+
+    <!-- RACK -->
+    <div class="rack-wrap">
+      <div class="rack-zoom" id="rackZoom">
+      <div class="rack" id="rack">
+
+        <!-- Input source bar -->
+        <div class="input-source">
+          <div class="input-source-label">INPUT</div>
+          <select id="inputSource">
+            <option value="none">— None —</option>
+            <option value="mic">Microphone</option>
+            <option value="file">Audio File</option>
+          </select>
+          <button class="file-btn" id="loadFileBtn">Load File...</button>
+          <input type="file" id="fileInput" accept="audio/*" />
+          <div class="transport">
+            <button id="playBtn">▶</button>
+            <button id="stopBtn">■</button>
+            <button id="loopBtn">⟲</button>
+          </div>
+        </div>
+
+        <div class="section-label">RACK — SIGNAL PATH ▼</div>
+        <!-- Main rack components will be injected here -->
+        <div id="compContainer"></div>
+
+        <div class="section-label global">GLOBAL FX</div>
+        <!-- Global FX components injected here -->
+        <div id="globalFxContainer"></div>
+
+      </div>
+      </div>
+      <!-- Rack size drag handle -->
+      <div class="rack-size-tooltip" id="rackSizeTooltip">Rack Size: 100%</div>
+      <div class="rack-size-handle" id="rackSizeHandle" title="Drag to resize rack">⇕</div>
+    </div>
+    <!-- SIGNAL FLOW -->
+    <div class="signal-flow">
+      <div class="sf-title">SIGNAL FLOW</div>
+      <!-- (2) Sidebar Input Selector (mirrors header) -->
+      <div class="sf-input-bar">
+        <div class="in-sel" id="sfInSel" title="Input configuration">
+          <button data-in="L" title="Left Input">L</button>
+          <button data-in="ST" class="active" title="Stereo Input">
+            <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.4">
+              <circle cx="7" cy="6" r="4"/>
+              <circle cx="13" cy="6" r="4"/>
+            </svg>
+          </button>
+          <button data-in="R" title="Right Input">R</button>
+        </div>
+      </div>
+      <div class="sf-list" id="sfList">
+        <div class="sf-io">IN</div>
+        <div class="sf-arrow">▼</div>
+        <div id="sfBlocks"></div>
+        <div class="sf-arrow">▼</div>
+        <div class="sf-io">OUT</div>
+        <!-- Master mute -->
+        <button class="sf-mute-btn" id="sfMuteBtn" title="Mute master output">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3 6 L3 10 L6 10 L10 13 L10 3 L6 6 Z"/>
+            <path d="M12 5 Q14 8 12 11" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sf-info" id="sfInfo">
+        <button class="sf-info-toggle" id="sfInfoToggle" title="Expand/Collapse Info pane">▾</button>
+        <a class="sf-info-title" id="sfInfoTitle">Guitar Rig</a>
+        <div class="sf-info-body" id="sfInfoBody">
+          Select a Component to see details. Hover over any control to see what it does.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// AUDIOWORKLET — Noise Gate Processor (runs on audio thread)
+// ============================================================
+const GATE_WORKLET_CODE = `
+class GateProcessor extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: 'threshold', defaultValue: -60, minValue: -90, maxValue: 0, automationRate: 'k-rate' },
+      { name: 'attack',    defaultValue: 0.002, minValue: 0.0001, maxValue: 0.1, automationRate: 'k-rate' },
+      { name: 'release',   defaultValue: 0.1, minValue: 0.01, maxValue: 2, automationRate: 'k-rate' },
+      { name: 'enabled',   defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' }
+    ];
+  }
+  constructor() {
+    super();
+    this.env = 0;
+    this.gate = 1;
+    // message port for learn RMS reporting
+    this.rmsSum = 0;
+    this.rmsCount = 0;
+    this.reportInterval = 0;
+    this.port.onmessage = (e) => {
+      if (e.data === 'reset') { this.env = 0; this.gate = 1; }
+    };
+  }
+  process(inputs, outputs, parameters) {
+    const input = inputs[0];
+    const output = outputs[0];
+    if (!input || !input.length) return true;
+    const threshold = parameters.threshold[0];
+    const threshLin = Math.pow(10, threshold / 20);
+    const attack = parameters.attack[0];
+    const release = parameters.release[0];
+    const enabled = parameters.enabled[0] > 0.5;
+    const sr = sampleRate;
+    const atkCoef = Math.exp(-1 / Math.max(0.0001, attack * sr));
+    const relCoef = Math.exp(-1 / Math.max(0.0001, release * sr));
+    const envRelCoef = Math.exp(-1 / (0.05 * sr)); // envelope follower release
+    const nCh = Math.min(input.length, output.length);
+    const nSamp = input[0].length;
+    for (let i = 0; i < nSamp; i++) {
+      let s = 0;
+      for (let ch = 0; ch < nCh; ch++) {
+        const v = Math.abs(input[ch][i]);
+        if (v > s) s = v;
+        this.rmsSum += input[ch][i] * input[ch][i];
+        this.rmsCount++;
+      }
+      // envelope follower (instant attack, slow release)
+      this.env = s > this.env ? s : s * (1 - envRelCoef) + this.env * envRelCoef;
+      // gate decision
+      const target = (!enabled || this.env > threshLin) ? 1 : 0;
+      const coef = target > this.gate ? (1 - atkCoef) : (1 - relCoef);
+      this.gate = this.gate + (target - this.gate) * coef;
+      for (let ch = 0; ch < nCh; ch++) {
+        output[ch][i] = input[ch][i] * this.gate;
+      }
+    }
+    // report rms every ~50 ms
+    this.reportInterval += nSamp;
+    if (this.reportInterval > sr * 0.05) {
+      const rms = Math.sqrt(this.rmsSum / this.rmsCount);
+      this.port.postMessage({ rms });
+      this.rmsSum = 0; this.rmsCount = 0; this.reportInterval = 0;
+    }
+    return true;
+  }
+}
+registerProcessor('gate-processor', GateProcessor);
+`;
+
+let gateWorkletLoaded = false;
+async function loadGateWorklet(ctx) {
+  if (gateWorkletLoaded) return;
+  const blob = new Blob([GATE_WORKLET_CODE], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  await ctx.audioWorklet.addModule(url);
+  URL.revokeObjectURL(url);
+  gateWorkletLoaded = true;
+}
+
+// ============================================================
+// AUDIO ENGINE — Web Audio API
+// ============================================================
+class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.input = null;
+    this.inputLevel = null;
+    this.inputSplitter = null;
+    this.inputMerger = null;
+    this.inputRoute = 'ST';
+    this.inPeakAnalyser = null;
+    this.outPeakAnalyser = null;
+    this.output = null;
+    this.outputLevel = null;
+    this.components = [];            // main rack chain
+    this.globalFxComponents = [];    // global FX chain (after main rack)
+    this.sidechainInput = null;      // external sidechain (scaffolded)
+    this.globalFxStart = null;       // junction between rack and global FX
+    this.sourceNode = null;
+    this.sourceType = 'none';
+    this.fileBuffer = null;
+    this.fileSource = null;
+    this.micStream = null;
+    this.analyser = null;
+    this.cpuLoad = 0;
+  }
+  async init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)({
+      latencyHint: 'interactive',
+      sampleRate: 48000
+    });
+    // Load AudioWorklet for gate
+    try {
+      await loadGateWorklet(this.ctx);
+    } catch(e) { console.warn('Gate worklet failed to load:', e); }
+
+    // Input routing: raw input -> splitter -> merger -> level -> gate -> chain
+    this.input = this.ctx.createGain();
+    this.inputSplitter = this.ctx.createChannelSplitter(2);
+    this.inputMerger = this.ctx.createChannelMerger(2);
+    this.inputLevel = this.ctx.createGain();
+    this.inputLevel.gain.value = 1;
+
+    // Noise gate (AudioWorklet)
+    if (gateWorkletLoaded) {
+      this.gateNode = new AudioWorkletNode(this.ctx, 'gate-processor', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [2]
+      });
+      this.gateNode.parameters.get('enabled').value = 0;
+      this.gateNode.parameters.get('threshold').value = -60;
+      this._gateRMS = 0;
+      this.gateNode.port.onmessage = (e) => {
+        if (e.data && typeof e.data.rms === 'number') this._gateRMS = e.data.rms;
+      };
+    } else {
+      // Fallback: passthrough gain if worklet failed
+      this.gateNode = this.ctx.createGain();
+    }
+
+    // Peak meter analysers
+    this.inPeakAnalyser = this.ctx.createAnalyser();
+    this.inPeakAnalyser.fftSize = 1024;
+    this.inPeakAnalyser.smoothingTimeConstant = 0;
+
+    // Output chain: output -> outputLevel -> limiter -> outPeakAnalyser -> destination
+    this.output = this.ctx.createGain();
+    this.outputLevel = this.ctx.createGain();
+    this.outputLevel.gain.value = 0.8;
+
+    // Global FX junction: the rack flows into here, then global fx components, then to output
+    this.globalFxStart = this.ctx.createGain();
+
+    // Sidechain input — external signal bus that components can tap
+    this.sidechainInput = this.ctx.createGain();
+    this.sidechainInput.gain.value = 0;
+
+    // Limiter (DynamicsCompressor pressed into service as brickwall-ish limiter)
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -1;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.001;
+    this.limiter.release.value = 0.05;
+    this.limiterEnabled = false;
+    this.limiterBypass = this.ctx.createGain();
+    this.limiterBypass.gain.value = 1;  // dry pass
+    this.limiterWet = this.ctx.createGain();
+    this.limiterWet.gain.value = 0;  // limiter out
+
+    // Master mute for engine on/off + manual mute
+    this.masterMute = this.ctx.createGain();
+    this.masterMute.gain.value = 1;
+    this._powerOn = true;
+    this._mutedOut = false;
+
+    this.outPeakAnalyser = this.ctx.createAnalyser();
+    this.outPeakAnalyser.fftSize = 1024;
+    this.outPeakAnalyser.smoothingTimeConstant = 0;
+
+    // Wire input path: input -> splitter -> merger -> inputLevel -> gate -> (chain)
+    this._wireInputRoute();
+    this.inputLevel.connect(this.inPeakAnalyser);
+    this.inputLevel.connect(this.gateNode);
+
+    // Wire output path: output -> outputLevel -> [bypass | limiter] -> masterMute -> outPeakAnalyser -> dest
+    this.output.connect(this.outputLevel);
+    this.outputLevel.connect(this.limiterBypass);
+    this.outputLevel.connect(this.limiter);
+    this.limiter.connect(this.limiterWet);
+    this.limiterBypass.connect(this.masterMute);
+    this.limiterWet.connect(this.masterMute);
+    this.masterMute.connect(this.outPeakAnalyser);
+    this.outPeakAnalyser.connect(this.ctx.destination);
+
+    this._rebuildChain();
+  }
+
+  setGateEnabled(enabled) {
+    if (!this.gateNode || !this.gateNode.parameters) return;
+    this.gateNode.parameters.get('enabled').setValueAtTime(enabled ? 1 : 0, this.ctx.currentTime);
+  }
+  setGateThreshold(db) {
+    if (!this.gateNode || !this.gateNode.parameters) return;
+    this.gateNode.parameters.get('threshold').setValueAtTime(db, this.ctx.currentTime);
+  }
+  setLimiterEnabled(enabled) {
+    if (!this.ctx) return;
+    this.limiterEnabled = enabled;
+    const t = this.ctx.currentTime;
+    this.limiterBypass.gain.setTargetAtTime(enabled ? 0 : 1, t, 0.01);
+    this.limiterWet.gain.setTargetAtTime(enabled ? 1 : 0, t, 0.01);
+  }
+  _updateMasterGain() {
+    if (!this.ctx) return;
+    const target = (this._powerOn && !this._mutedOut) ? 1 : 0;
+    this.masterMute.gain.setTargetAtTime(target, this.ctx.currentTime, 0.02);
+  }
+  setEnginePower(on) {
+    if (!this.ctx) return;
+    this._powerOn = on;
+    this._updateMasterGain();
+    if (on) this.resume();
+    else setTimeout(() => { if (!this._powerOn) this.ctx.suspend(); }, 100);
+  }
+  setOutputMuted(muted) {
+    this._mutedOut = muted;
+    this._updateMasterGain();
+  }
+  _wireInputRoute() {
+    try { this.input.disconnect(); } catch(e){}
+    try { this.inputSplitter.disconnect(); } catch(e){}
+    try { this.inputMerger.disconnect(); } catch(e){}
+    this.input.connect(this.inputSplitter);
+    if (this.inputRoute === 'L') {
+      // Left input fed to both output channels (mono)
+      this.inputSplitter.connect(this.inputMerger, 0, 0);
+      this.inputSplitter.connect(this.inputMerger, 0, 1);
+    } else if (this.inputRoute === 'R') {
+      this.inputSplitter.connect(this.inputMerger, 1, 0);
+      this.inputSplitter.connect(this.inputMerger, 1, 1);
+    } else {
+      // Stereo passthrough
+      this.inputSplitter.connect(this.inputMerger, 0, 0);
+      this.inputSplitter.connect(this.inputMerger, 1, 1);
+    }
+    this.inputMerger.connect(this.inputLevel);
+  }
+  setInputRoute(route) {
+    this.inputRoute = route;
+    if (this.ctx) {
+      this._wireInputRoute();
+      this._rebuildChain();
+    }
+  }
+  setInputLevelDb(db) {
+    if (!this.ctx) return;
+    this.inputLevel.gain.setTargetAtTime(dbToGain(db), this.ctx.currentTime, 0.01);
+  }
+  setOutputLevelDb(db) {
+    if (!this.ctx) return;
+    this.outputLevel.gain.setTargetAtTime(dbToGain(db), this.ctx.currentTime, 0.01);
+  }
+  async resume() {
+    if (this.ctx && this.ctx.state === 'suspended') await this.ctx.resume();
+  }
+  addComponent(comp) {
+    this.components.push(comp);
+    comp.build(this.ctx);
+    this._rebuildChain();
+  }
+  moveComponent(fromIdx, toIdx) {
+    const [c] = this.components.splice(fromIdx, 1);
+    this.components.splice(toIdx, 0, c);
+    this._rebuildChain();
+  }
+  _rebuildChain() {
+    if (!this.ctx) return;
+    // Disconnect everything touching the chain
+    try { this.gateNode.disconnect(); } catch(e){}
+    try { this.globalFxStart.disconnect(); } catch(e){}
+    this.components.forEach(c => {
+      try { c.getOutput().disconnect(); } catch(e){}
+      if (c._monoDownmix) try { c._monoDownmix.disconnect(); } catch(e){}
+    });
+    this.globalFxComponents.forEach(c => {
+      try { c.getOutput().disconnect(); } catch(e){}
+      if (c._monoDownmix) try { c._monoDownmix.disconnect(); } catch(e){}
+    });
+
+    // === RACK CHAIN: gateNode -> (enabled rack comps) -> globalFxStart
+    let prev = this.gateNode;
+    for (const c of this.components) {
+      if (c.bypassed) continue; // OFF components are removed from the graph (CPU freed)
+      const nodeIn = c.getInput();
+      const nodeOut = c.getOutput();
+      if (!nodeIn || !nodeOut) continue;
+      try {
+        if (c.monoMode && c._monoDownmix) {
+          prev.connect(c._monoDownmix);
+          c._monoDownmix.connect(nodeIn);
+        } else {
+          prev.connect(nodeIn);
+        }
+      } catch(e){}
+      prev = nodeOut;
+    }
+    try { prev.connect(this.globalFxStart); } catch(e){}
+
+    // === GLOBAL FX CHAIN: globalFxStart -> (enabled global fx) -> output
+    let prev2 = this.globalFxStart;
+    for (const c of this.globalFxComponents) {
+      if (c.bypassed) continue;
+      const nodeIn = c.getInput();
+      const nodeOut = c.getOutput();
+      if (!nodeIn || !nodeOut) continue;
+      try {
+        if (c.monoMode && c._monoDownmix) {
+          prev2.connect(c._monoDownmix);
+          c._monoDownmix.connect(nodeIn);
+        } else {
+          prev2.connect(nodeIn);
+        }
+      } catch(e){}
+      prev2 = nodeOut;
+    }
+    try { prev2.connect(this.output); } catch(e){}
+  }
+  addGlobalFxComponent(comp) {
+    this.globalFxComponents.push(comp);
+    comp.build(this.ctx);
+    this._rebuildChain();
+  }
+  async setSource(type) {
+    await this.init(); await this.resume();
+    if (this.sourceNode) { try { this.sourceNode.disconnect(); } catch(e){} this.sourceNode = null; }
+    if (this.fileSource) { try { this.fileSource.stop(); } catch(e){} this.fileSource = null; }
+    if (this.micStream) { this.micStream.getTracks().forEach(t => t.stop()); this.micStream = null; }
+    this.sourceType = type;
+    if (type === 'mic') {
+      try {
+        this.micStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        });
+        this.sourceNode = this.ctx.createMediaStreamSource(this.micStream);
+        this.sourceNode.connect(this.input);
+      } catch(e) {
+        toast('Mic access denied');
+      }
+    } else if (type === 'file' && this.fileBuffer) {
+      this.playFile();
+    }
+  }
+  async loadFile(file) {
+    await this.init();
+    const arr = await file.arrayBuffer();
+    this.fileBuffer = await this.ctx.decodeAudioData(arr);
+    toast('Loaded: ' + file.name);
+  }
+  playFile() {
+    if (!this.fileBuffer) return;
+    if (this.fileSource) { try { this.fileSource.stop(); } catch(e){} }
+    this.fileSource = this.ctx.createBufferSource();
+    this.fileSource.buffer = this.fileBuffer;
+    this.fileSource.loop = true;
+    this.fileSource.connect(this.input);
+    this.fileSource.start();
+    this.sourceNode = this.fileSource;
+    this.sourceType = 'file';
+  }
+  stopFile() {
+    if (this.fileSource) { try { this.fileSource.stop(); } catch(e){} this.fileSource = null; }
+  }
+}
+
+// ============================================================
+// COMPONENT BASE CLASS
+// ============================================================
+class Component {
+  constructor(name, id) {
+    this.name = name;
+    this.id = id;
+    this.bypassed = false;  // bypassed = off (CPU removed from graph)
+    this.monoMode = false;  // when true, input is downmixed to mono before processing
+    this.params = {};
+    this.nodes = {};
+    this.el = null;
+    this.wetGain = null;
+    this.dryGain = null;
+    this.inGain = null;
+    this.outGain = null;
+  }
+  build(ctx) {
+    this.ctx = ctx;
+    this.inGain = ctx.createGain();
+    this.outGain = ctx.createGain();
+    this.wetGain = ctx.createGain();
+    this.dryGain = ctx.createGain();
+    this.dryGain.gain.value = 0;
+    this.wetGain.gain.value = 1;
+    // Mono downmix wrapper — placed BEFORE the component's input when monoMode is on
+    this._monoDownmix = ctx.createGain();
+    this._monoDownmix.channelCount = 1;
+    this._monoDownmix.channelCountMode = 'explicit';
+    this._monoDownmix.channelInterpretation = 'speakers';
+    this._buildDSP(ctx);
+    // bypass routing: in -> [dry -> out] + [dsp -> wet -> out]
+    this.inGain.connect(this.dryGain);
+    this.dryGain.connect(this.outGain);
+    this.wetGain.connect(this.outGain);
+    this._connectDSP();
+  }
+  _buildDSP(ctx) { /* override */ }
+  _connectDSP() { /* override: connect inGain -> ... -> wetGain */ }
+  getInput() { return this.inGain; }
+  getOutput() { return this.outGain; }
+  disconnect() {
+    try { this.outGain.disconnect(); } catch(e){}
+  }
+  setBypass(off) {
+    // "off" = component is bypassed AND removed from the chain (CPU freed)
+    this.bypassed = off;
+    if (!this.ctx) return;
+    // Small ramp on outGain to minimize clicks during rebuild
+    const t = this.ctx.currentTime;
+    if (off) {
+      this.outGain.gain.setTargetAtTime(0, t, 0.005);
+    } else {
+      this.outGain.gain.setTargetAtTime(1, t, 0.005);
+    }
+    // Defer rebuild briefly so gain has time to ramp
+    if (typeof engine !== 'undefined' && engine._rebuildChain) {
+      setTimeout(() => engine._rebuildChain(), 20);
+    }
+  }
+  setMonoMode(mono) {
+    this.monoMode = mono;
+    if (typeof engine !== 'undefined' && engine._rebuildChain) {
+      engine._rebuildChain();
+    }
+  }
+  setParam(key, value) {
+    this.params[key] = value;
+    this._applyParam(key, value);
+  }
+  _applyParam(key, value) { /* override */ }
+}
+
+// ============================================================
+// FAST COMP — simple dynamics compressor
+// ============================================================
+class FastComp extends Component {
+  constructor() {
+    super('FAST COMP', 'fastcomp');
+    this.params = { input: 0, attack: 20, ratio: 4, makeup: 0 };
+  }
+  _buildDSP(ctx) {
+    this.nodes.inLevel = ctx.createGain();
+    this.nodes.inLevel.gain.value = 1;
+    this.nodes.comp = ctx.createDynamicsCompressor();
+    this.nodes.comp.threshold.value = -24;
+    this.nodes.comp.knee.value = 6;
+    this.nodes.comp.ratio.value = 4;
+    this.nodes.comp.attack.value = 0.02;
+    this.nodes.comp.release.value = 0.25;
+    this.nodes.makeup = ctx.createGain();
+    this.nodes.makeup.gain.value = 1;
+  }
+  _connectDSP() {
+    this.inGain
+      .connect(this.nodes.inLevel)
+      .connect(this.nodes.comp)
+      .connect(this.nodes.makeup)
+      .connect(this.wetGain);
+  }
+  _applyParam(key, value) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (key === 'input') {
+      this.nodes.inLevel.gain.setTargetAtTime(dbToGain(value), t, 0.01);
+      // threshold tracks input a little
+      this.nodes.comp.threshold.setTargetAtTime(-24 - value * 0.5, t, 0.01);
+    }
+    if (key === 'attack') this.nodes.comp.attack.setTargetAtTime(value / 1000, t, 0.01);
+    if (key === 'ratio') this.nodes.comp.ratio.setTargetAtTime(value, t, 0.01);
+    if (key === 'makeup') this.nodes.makeup.gain.setTargetAtTime(dbToGain(value), t, 0.01);
+  }
+  render() {
+    const el = document.createElement('div');
+    el.className = 'comp';
+    el.dataset.id = this.id;
+    el.innerHTML = `
+      <div class="comp-header" draggable="true">
+        <div class="comp-name">⊞ FAST COMP</div>
+        <div class="comp-preset">▸ INIT</div>
+        <div class="comp-spacer"></div>
+        <button class="comp-btn bypass active" title="Bypass">●</button>
+        <button class="comp-btn" title="Settings">⚙</button>
+        <button class="comp-btn" title="Close">✕</button>
+      </div>
+      <div class="comp-body">
+        ${knobHTML('input','INPUT','-12',12,-12,0)}
+        ${knobHTML('attack','ATTACK','20',100,0.1,20)}
+        ${knobHTML('ratio','RATIO','4:1',20,1,4)}
+        <div class="gr-meter">
+          <div class="gr-label">GAIN REDUCTION</div>
+          <canvas></canvas>
+        </div>
+        ${knobHTML('makeup','MAKEUP','0',24,-12,0)}
+      </div>
+    `;
+    this.el = el;
+    wireComponent(this, el);
+    // GR meter
+    const canvas = el.querySelector('.gr-meter canvas');
+    this._meterCanvas = canvas;
+    return el;
+  }
+  drawMeter() {
+    if (!this._meterCanvas || !this.nodes.comp) return;
+    const c = this._meterCanvas;
+    const dpr = window.devicePixelRatio || 1;
+    if (c.width !== c.clientWidth * dpr) { c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr; }
+    const ctx2d = c.getContext('2d');
+    ctx2d.clearRect(0, 0, c.width, c.height);
+    const reduction = this.nodes.comp.reduction; // -dB value (negative)
+    const w = c.width, h = c.height;
+    // segments
+    const segs = 20;
+    const segW = (w - 10) / segs;
+    const active = Math.min(segs, Math.floor(-reduction * 1.5));
+    for (let i = 0; i < segs; i++) {
+      ctx2d.fillStyle = i < active
+        ? (i > 12 ? '#ff4444' : i > 7 ? '#ffaa22' : '#ffb020')
+        : '#1a1a1e';
+      ctx2d.fillRect(5 + i * segW, h * 0.35, segW - 2, h * 0.4);
+    }
+  }
+}
+
+// ============================================================
+// BASS PRO — multi-band EQ
+// ============================================================
+class BassPro extends Component {
+  constructor() {
+    super('BASS PRO', 'basspro');
+    this.params = { gate: 0, bass: 0, mid: 0, midFreq: 800, treble: 0, drive: 0, master: 0 };
+  }
+  _buildDSP(ctx) {
+    this.nodes.gate = ctx.createGain();
+    this.nodes.bass = ctx.createBiquadFilter();
+    this.nodes.bass.type = 'lowshelf';
+    this.nodes.bass.frequency.value = 100;
+    this.nodes.mid = ctx.createBiquadFilter();
+    this.nodes.mid.type = 'peaking';
+    this.nodes.mid.frequency.value = 800;
+    this.nodes.mid.Q.value = 1;
+    this.nodes.treble = ctx.createBiquadFilter();
+    this.nodes.treble.type = 'highshelf';
+    this.nodes.treble.frequency.value = 3200;
+    this.nodes.drive = ctx.createWaveShaper();
+    this.nodes.drive.curve = makeDriveCurve(0);
+    this.nodes.drive.oversample = '4x';
+    this.nodes.master = ctx.createGain();
+  }
+  _connectDSP() {
+    this.inGain
+      .connect(this.nodes.gate)
+      .connect(this.nodes.bass)
+      .connect(this.nodes.mid)
+      .connect(this.nodes.treble)
+      .connect(this.nodes.drive)
+      .connect(this.nodes.master)
+      .connect(this.wetGain);
+  }
+  _applyParam(key, value) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (key === 'gate') this.nodes.gate.gain.setTargetAtTime(dbToGain(value), t, 0.01);
+    if (key === 'bass') this.nodes.bass.gain.setTargetAtTime(value, t, 0.01);
+    if (key === 'mid') this.nodes.mid.gain.setTargetAtTime(value, t, 0.01);
+    if (key === 'midFreq') this.nodes.mid.frequency.setTargetAtTime(value, t, 0.01);
+    if (key === 'treble') this.nodes.treble.gain.setTargetAtTime(value, t, 0.01);
+    if (key === 'drive') this.nodes.drive.curve = makeDriveCurve(value);
+    if (key === 'master') this.nodes.master.gain.setTargetAtTime(dbToGain(value), t, 0.01);
+  }
+  render() {
+    const el = document.createElement('div');
+    el.className = 'comp';
+    el.dataset.id = this.id;
+    el.innerHTML = `
+      <div class="comp-header" draggable="true">
+        <div class="comp-name">⊞ BASS PRO</div>
+        <div class="comp-preset">▸ DEFAULT</div>
+        <div class="comp-spacer"></div>
+        <button class="comp-btn bypass active">●</button>
+        <button class="comp-btn">⚙</button>
+        <button class="comp-btn">✕</button>
+      </div>
+      <div class="comp-body">
+        ${knobHTML('gate','GATE','0',24,-24,0)}
+        ${knobHTML('bass','BASS','0',18,-18,0)}
+        ${knobHTML('mid','MID','0',18,-18,0)}
+        ${knobHTML('midFreq','MID FREQ','800',5000,200,800)}
+        ${knobHTML('treble','TREBLE','0',18,-18,0)}
+        ${knobHTML('drive','DRIVE','0',100,0,0)}
+        ${knobHTML('master','MASTER','0',12,-24,0)}
+      </div>
+    `;
+    this.el = el;
+    wireComponent(this, el);
+    return el;
+  }
+}
+
+// ============================================================
+// CONTROL ROOM PRO — cab/room sim (high-pass + low-pass IR-lite)
+// ============================================================
+class ControlRoomPro extends Component {
+  constructor() {
+    super('CONTROL ROOM PRO', 'controlroom');
+    this.params = { bass: 0, treble: 0, air: 0, volume: 0 };
+  }
+  _buildDSP(ctx) {
+    this.nodes.hp = ctx.createBiquadFilter();
+    this.nodes.hp.type = 'highpass';
+    this.nodes.hp.frequency.value = 80;
+    this.nodes.lp = ctx.createBiquadFilter();
+    this.nodes.lp.type = 'lowpass';
+    this.nodes.lp.frequency.value = 5500;
+    this.nodes.lp.Q.value = 0.7;
+    this.nodes.bass = ctx.createBiquadFilter();
+    this.nodes.bass.type = 'lowshelf';
+    this.nodes.bass.frequency.value = 150;
+    this.nodes.treble = ctx.createBiquadFilter();
+    this.nodes.treble.type = 'peaking';
+    this.nodes.treble.frequency.value = 2500;
+    this.nodes.treble.Q.value = 0.8;
+    this.nodes.air = ctx.createBiquadFilter();
+    this.nodes.air.type = 'highshelf';
+    this.nodes.air.frequency.value = 8000;
+    this.nodes.vol = ctx.createGain();
+    // synthetic impulse response for cab coloration
+    this.nodes.conv = ctx.createConvolver();
+    this.nodes.conv.buffer = makeCabIR(ctx, 0.03);
+    this.nodes.dryCab = ctx.createGain();
+    this.nodes.wetCab = ctx.createGain();
+    this.nodes.dryCab.gain.value = 0.4;
+    this.nodes.wetCab.gain.value = 0.6;
+  }
+  _connectDSP() {
+    this.inGain
+      .connect(this.nodes.hp)
+      .connect(this.nodes.lp)
+      .connect(this.nodes.bass)
+      .connect(this.nodes.treble)
+      .connect(this.nodes.air);
+    this.nodes.air.connect(this.nodes.dryCab).connect(this.nodes.vol);
+    this.nodes.air.connect(this.nodes.conv).connect(this.nodes.wetCab).connect(this.nodes.vol);
+    this.nodes.vol.connect(this.wetGain);
+  }
+  _applyParam(key, value) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (key === 'bass') this.nodes.bass.gain.setTargetAtTime(value, t, 0.01);
+    if (key === 'treble') this.nodes.treble.gain.setTargetAtTime(value, t, 0.01);
+    if (key === 'air') this.nodes.air.gain.setTargetAtTime(value, t, 0.01);
+    if (key === 'volume') this.nodes.vol.gain.setTargetAtTime(dbToGain(value), t, 0.01);
+  }
+  render() {
+    const el = document.createElement('div');
+    el.className = 'comp';
+    el.dataset.id = this.id;
+    el.innerHTML = `
+      <div class="comp-header" draggable="true">
+        <div class="comp-name">⊞ CONTROL ROOM PRO</div>
+        <div class="comp-preset">▸ 8x10 BASS PRO</div>
+        <div class="comp-spacer"></div>
+        <button class="comp-btn bypass active">●</button>
+        <button class="comp-btn">⚙</button>
+        <button class="comp-btn">✕</button>
+      </div>
+      <div class="comp-body">
+        <div class="cab-display">
+          <div class="cab-icon"></div>
+          <div class="cab-icon"></div>
+          <div class="cab-icon"></div>
+        </div>
+        <div style="flex:1"></div>
+        ${knobHTML('bass','BASS','0',12,-12,0)}
+        ${knobHTML('treble','TREBLE','0',12,-12,0)}
+        ${knobHTML('air','AIR','0',12,-12,0)}
+        ${knobHTML('volume','VOLUME','0',12,-24,0)}
+      </div>
+    `;
+    this.el = el;
+    wireComponent(this, el);
+    return el;
+  }
+}
+
+// ============================================================
+// STEREO TUNE — tuner + stereo width
+// ============================================================
+class StereoTune extends Component {
+  constructor() {
+    super('STEREO TUNE', 'stereotune');
+    this.params = { spread: 0, shift: 0, mix: 100 };
+    this._note = '—'; this._cents = 0; this._freq = 0;
+  }
+  _buildDSP(ctx) {
+    this.nodes.splitter = ctx.createChannelSplitter(2);
+    this.nodes.merger = ctx.createChannelMerger(2);
+    this.nodes.lGain = ctx.createGain();
+    this.nodes.rGain = ctx.createGain();
+    this.nodes.mono = ctx.createGain();
+    // pitch detector
+    this.nodes.analyser = ctx.createAnalyser();
+    this.nodes.analyser.fftSize = 4096;
+    this._buf = new Float32Array(this.nodes.analyser.fftSize);
+  }
+  _connectDSP() {
+    // Tap for analysis
+    this.inGain.connect(this.nodes.analyser);
+    // Pass through (could be widened later)
+    this.inGain.connect(this.wetGain);
+  }
+  _applyParam(key, value) { /* future */ }
+  updateTuner() {
+    if (!this.nodes.analyser) return;
+    this.nodes.analyser.getFloatTimeDomainData(this._buf);
+    const sr = this.ctx.sampleRate;
+    const f = autoCorrelate(this._buf, sr);
+    if (f > 0) {
+      this._freq = f;
+      const { note, cents } = freqToNote(f);
+      this._note = note;
+      this._cents = cents;
+    } else {
+      this._note = '—';
+      this._cents = 0;
+    }
+    if (this._noteEl) this._noteEl.textContent = this._note;
+    if (this._centsEl) this._centsEl.textContent = (this._cents > 0 ? '+' : '') + this._cents.toFixed(0) + ' cents';
+    this._drawTunerMeter();
+  }
+  _drawTunerMeter() {
+    if (!this._meterCanvas) return;
+    const c = this._meterCanvas;
+    const dpr = window.devicePixelRatio || 1;
+    if (c.width !== c.clientWidth * dpr) { c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr; }
+    const ctx2d = c.getContext('2d');
+    const w = c.width, h = c.height;
+    ctx2d.clearRect(0, 0, w, h);
+    // center line
+    ctx2d.fillStyle = '#3a3a40';
+    ctx2d.fillRect(w / 2 - 1, 0, 2, h);
+    // ticks
+    for (let i = -5; i <= 5; i++) {
+      const x = w / 2 + (i / 5) * (w / 2 - 10);
+      ctx2d.fillStyle = i === 0 ? '#ffb020' : '#2a2a30';
+      ctx2d.fillRect(x - 1, h * 0.2, 2, h * 0.6);
+    }
+    if (this._freq > 0) {
+      const pos = Math.max(-50, Math.min(50, this._cents));
+      const x = w / 2 + (pos / 50) * (w / 2 - 10);
+      const inTune = Math.abs(this._cents) < 5;
+      ctx2d.fillStyle = inTune ? '#44dd66' : '#ffb020';
+      ctx2d.shadowColor = ctx2d.fillStyle;
+      ctx2d.shadowBlur = 8;
+      ctx2d.fillRect(x - 2, 4, 4, h - 8);
+      ctx2d.shadowBlur = 0;
+    }
+  }
+  render() {
+    const el = document.createElement('div');
+    el.className = 'comp';
+    el.dataset.id = this.id;
+    el.innerHTML = `
+      <div class="comp-header" draggable="true">
+        <div class="comp-name">⊞ STEREO TUNE</div>
+        <div class="comp-preset">▸ DEFAULT</div>
+        <div class="comp-spacer"></div>
+        <button class="comp-btn bypass active">●</button>
+        <button class="comp-btn">⚙</button>
+        <button class="comp-btn">✕</button>
+      </div>
+      <div class="comp-body">
+        <div class="tuner">
+          <div class="tuner-display">
+            <div class="tuner-note">—</div>
+            <div class="tuner-cents">0 cents</div>
+          </div>
+          <div class="tuner-meter"><canvas></canvas></div>
+        </div>
+      </div>
+    `;
+    this.el = el;
+    wireComponent(this, el);
+    this._noteEl = el.querySelector('.tuner-note');
+    this._centsEl = el.querySelector('.tuner-cents');
+    this._meterCanvas = el.querySelector('.tuner-meter canvas');
+    return el;
+  }
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function knobHTML(key, label, displayValue, max, min, val) {
+  return `
+    <div class="knob-group" data-param="${key}" data-min="${min}" data-max="${max}">
+      <div class="knob" data-value="${val}">
+        <div class="knob-indicator"></div>
+      </div>
+      <div class="knob-label">${label}</div>
+      <div class="knob-value">${displayValue}</div>
+    </div>
+  `;
+}
+
+function wireComponent(comp, el) {
+  // Knobs
+  el.querySelectorAll('.knob-group').forEach(g => {
+    const key = g.dataset.param;
+    const min = parseFloat(g.dataset.min);
+    const max = parseFloat(g.dataset.max);
+    const knob = g.querySelector('.knob');
+    const indicator = g.querySelector('.knob-indicator');
+    const valueEl = g.querySelector('.knob-value');
+    let val = parseFloat(knob.dataset.value);
+    const update = () => {
+      const range = max - min;
+      const norm = (val - min) / range;
+      const angle = -135 + norm * 270;
+      indicator.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+      valueEl.textContent = Math.abs(val) < 10 ? val.toFixed(1) : val.toFixed(0);
+      comp.setParam(key, val);
+    };
+    update();
+    let startY = 0, startVal = 0;
+    knob.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      startY = e.clientY; startVal = val;
+      knob.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        const dy = startY - ev.clientY;
+        const range = max - min;
+        val = Math.max(min, Math.min(max, startVal + (dy / 150) * range));
+        update();
+      };
+      const up = (ev) => {
+        knob.removeEventListener('pointermove', move);
+        knob.removeEventListener('pointerup', up);
+      };
+      knob.addEventListener('pointermove', move);
+      knob.addEventListener('pointerup', up);
+    });
+    knob.addEventListener('dblclick', () => {
+      val = (min + max) / 2;
+      if (min < 0 && max > 0) val = 0;
+      update();
+    });
+    // Hover → show control description in info pane
+    g.addEventListener('mouseenter', () => {
+      updateInfoPane({
+        control: comp.id + '.' + key,
+        componentName: (COMPONENT_INFO[comp.id] || {}).name || comp.name
+      });
+    });
+    g.addEventListener('mouseleave', () => {
+      // Revert to selected component's info
+      if (selected) updateInfoPane({ component: selected });
+      else updateInfoPane();
+    });
+  });
+
+  // Bypass → On/Off (removes component from chain, frees CPU)
+  const bypassBtn = el.querySelector('.comp-btn.bypass');
+  bypassBtn.classList.add('onoff');
+  bypassBtn.classList.remove('bypass');
+  bypassBtn.title = 'Component On/Off — click to remove from signal chain';
+  bypassBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4 A5 5 0 1 0 11 4"/><line x1="8" y1="2.5" x2="8" y2="8"/></svg>`;
+  bypassBtn.addEventListener('click', () => {
+    const newOff = !comp.bypassed;
+    comp.setBypass(newOff);
+    bypassBtn.classList.toggle('off', newOff);
+    el.classList.toggle('off', newOff);
+    updateSignalFlow();
+  });
+
+  // Inject Mono/Stereo toggle into the header (before the on/off button)
+  const header = el.querySelector('.comp-header');
+  const msToggle = document.createElement('div');
+  msToggle.className = 'comp-ms';
+  msToggle.title = 'Mono/Stereo processing';
+  msToggle.innerHTML = `
+    <button data-ms="stereo" class="active">ST</button>
+    <button data-ms="mono">M</button>
+  `;
+  // Insert before the first comp-btn
+  const firstBtn = header.querySelector('.comp-btn');
+  header.insertBefore(msToggle, firstBtn);
+  msToggle.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      msToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      comp.setMonoMode(btn.dataset.ms === 'mono');
+      toast(`${comp.name}: ${btn.dataset.ms === 'mono' ? 'Mono (CPU saved)' : 'Stereo'} processing`);
+    });
+  });
+  // Close
+  const closeBtn = el.querySelectorAll('.comp-btn')[2];
+  closeBtn.addEventListener('click', () => {
+    if (typeof pushHistory === 'function') pushHistory();
+    removeComponent(comp);
+  });
+
+  // Drag for reordering
+  header.addEventListener('dragstart', (e) => {
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', comp.id);
+  });
+  header.addEventListener('dragend', () => el.classList.remove('dragging'));
+  el.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    el.classList.add('drag-over');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', (e) => {
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    const draggedId = e.dataTransfer.getData('text/plain');
+    const fromIdx = engine.components.findIndex(c => c.id === draggedId);
+    const toIdx = engine.components.findIndex(c => c.id === comp.id);
+    if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+      if (typeof pushHistory === 'function') pushHistory();
+      engine.moveComponent(fromIdx, toIdx);
+      renderRack();
+      updateSignalFlow();
+    }
+  });
+
+  // Click to select in signal flow
+  el.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('comp-btn')) {
+      selectComponent(comp);
+    }
+  });
+  // Hovering the component (outside a knob) shows component info
+  el.addEventListener('mouseenter', () => {
+    updateInfoPane({ component: comp });
+  });
+}
+
+// ============================================================
+// DSP UTILS
+// ============================================================
+function dbToGain(db) { return Math.pow(10, db / 20); }
+
+function makeDriveCurve(amount) {
+  const k = amount * 0.5;
+  const n = 1024;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    curve[i] = ((1 + k / 100) * x) / (1 + (k / 100) * Math.abs(x));
+  }
+  return curve;
+}
+
+function makeCabIR(ctx, duration) {
+  const sr = ctx.sampleRate;
+  const len = Math.floor(sr * duration);
+  const buf = ctx.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    // fast exponential decay with some comb filtering for cab character
+    for (let i = 0; i < len; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 120);
+      const noise = (Math.random() * 2 - 1);
+      // add a few resonant modes
+      const mode1 = Math.sin(2 * Math.PI * 90 * t) * 0.3;
+      const mode2 = Math.sin(2 * Math.PI * 250 * t) * 0.2;
+      d[i] = (noise * 0.6 + mode1 + mode2) * env;
+    }
+  }
+  return buf;
+}
+
+// Pitch detection via autocorrelation
+function autoCorrelate(buf, sampleRate) {
+  const SIZE = buf.length;
+  let rms = 0;
+  for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.01) return -1;
+  let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+  for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+  for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+  const trimmed = buf.slice(r1, r2);
+  const newSize = trimmed.length;
+  const c = new Array(newSize).fill(0);
+  for (let i = 0; i < newSize; i++)
+    for (let j = 0; j < newSize - i; j++) c[i] += trimmed[j] * trimmed[j + i];
+  let d = 0;
+  while (c[d] > c[d + 1]) d++;
+  let maxval = -1, maxpos = -1;
+  for (let i = d; i < newSize; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+  let T0 = maxpos;
+  if (T0 <= 0) return -1;
+  const x1 = c[T0 - 1] || 0, x2 = c[T0], x3 = c[T0 + 1] || 0;
+  const a = (x1 + x3 - 2 * x2) / 2, b = (x3 - x1) / 2;
+  if (a) T0 = T0 - b / (2 * a);
+  return sampleRate / T0;
+}
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function freqToNote(f) {
+  const midi = 69 + 12 * Math.log2(f / 440);
+  const rounded = Math.round(midi);
+  const cents = (midi - rounded) * 100;
+  const name = NOTE_NAMES[(rounded + 1200) % 12];
+  const octave = Math.floor(rounded / 12) - 1;
+  return { note: name + octave, cents };
+}
+
+// ============================================================
+// INFO DATABASE — descriptions shown in the Info pane
+// ============================================================
+const COMPONENT_INFO = {
+  fastcomp: {
+    name: 'Fast Comp',
+    desc: 'A fast, character-rich compressor ideal for drums, bass, and aggressive transient control. Uses a soft-knee dynamics compressor with adjustable input drive and make-up gain.'
+  },
+  basspro: {
+    name: 'Bass Pro',
+    desc: 'A dedicated bass preamp and tone shaper with noise gate, three-band EQ, sweepable mid frequency, tube-style drive, and master output. Modelled after classic bass rig preamps.'
+  },
+  controlroom: {
+    name: 'Control Room Pro',
+    desc: 'A cabinet and room simulator that applies convolution-based cab coloration and air. Features high-pass / low-pass shaping, three-band EQ, and a mix between dry cabinet and room reflections.'
+  },
+  stereotune: {
+    name: 'Stereo Tune',
+    desc: 'A chromatic tuner with real-time pitch detection (autocorrelation). Displays the nearest note and cents deviation. Turns green when within ±5 cents of pitch.'
+  }
+};
+
+const CONTROL_INFO = {
+  // Fast Comp
+  'fastcomp.input':  { name: 'Input',   text: 'Adjusts the amount of gain added to the signal before the compressor. Use this control to drive the compressor harder and to compensate for the gain reduction applied by the compressor, increasing the overall loudness of the signal.' },
+  'fastcomp.attack': { name: 'Attack',  text: 'Sets how quickly the compressor responds to transients. Shorter attack times catch fast peaks but can soften transients; longer attack times let transients through before compression kicks in.' },
+  'fastcomp.ratio':  { name: 'Ratio',   text: 'Sets the compression ratio. A ratio of 4:1 means that for every 4 dB the signal exceeds the threshold, only 1 dB will pass through.' },
+  'fastcomp.makeup': { name: 'Makeup',  text: 'Adjusts the output gain after compression to compensate for gain reduction and match the uncompressed level.' },
+  // Bass Pro
+  'basspro.gate':    { name: 'Gate',    text: 'Adjusts the noise gate threshold. Lower values let more of the signal through; higher values suppress quiet noise between notes.' },
+  'basspro.bass':    { name: 'Bass',    text: 'Low-shelf filter at 100 Hz. Boost or cut the fundamental frequencies of the bass signal.' },
+  'basspro.mid':     { name: 'Mid',     text: 'Peaking filter whose center frequency is set by the Mid Freq control. Shapes the midrange character of the tone.' },
+  'basspro.midFreq': { name: 'Mid Freq',text: 'Sets the center frequency of the Mid band, from 200 Hz (warmth) to 5 kHz (bite).' },
+  'basspro.treble':  { name: 'Treble',  text: 'High-shelf filter at 3.2 kHz. Boost for presence and string articulation, cut to tame harshness.' },
+  'basspro.drive':   { name: 'Drive',   text: 'Adds harmonic saturation via a waveshaper. Low values add warmth, high values produce aggressive tube-style distortion.' },
+  'basspro.master':  { name: 'Master',  text: 'Output gain of the Bass Pro stage.' },
+  // Control Room Pro
+  'controlroom.bass':   { name: 'Bass',   text: 'Low-shelf boost/cut for cabinet low end.' },
+  'controlroom.treble': { name: 'Treble', text: 'Peaking filter around 2.5 kHz for cabinet presence.' },
+  'controlroom.air':    { name: 'Air',    text: 'High-shelf filter at 8 kHz. Adds open top-end character.' },
+  'controlroom.volume': { name: 'Volume', text: 'Final volume of the cabinet simulator stage.' },
+};
+
+// Default info shown when nothing is selected
+const DEFAULT_INFO = {
+  title: 'Guitar Rig',
+  body: 'Select a Component to see details. Hover over any control to see what it does.'
+};
+
+// ============================================================
+// INFO PANE UPDATE
+// ============================================================
+function updateInfoPane(opts = {}) {
+  const titleEl = document.getElementById('sfInfoTitle');
+  const bodyEl = document.getElementById('sfInfoBody');
+  if (opts.control) {
+    // Showing a specific control's info
+    const ctrl = CONTROL_INFO[opts.control];
+    if (ctrl) {
+      titleEl.textContent = opts.componentName || '';
+      bodyEl.innerHTML = `
+        <div class="sf-info-control">${ctrl.name.toUpperCase()}</div>
+        <div>${ctrl.text}</div>`;
+      return;
+    }
+  }
+  if (opts.component) {
+    const info = COMPONENT_INFO[opts.component.id];
+    if (info) {
+      titleEl.textContent = info.name;
+      bodyEl.textContent = info.desc;
+      return;
+    }
+  }
+  titleEl.textContent = DEFAULT_INFO.title;
+  bodyEl.textContent = DEFAULT_INFO.body;
+}
+
+// ============================================================
+// COMPONENT REGISTRY — for cut/copy/paste and undo/redo
+// ============================================================
+const COMPONENT_REGISTRY = {
+  fastcomp: { cls: () => FastComp, name: 'FAST COMP' },
+  basspro: { cls: () => BassPro, name: 'BASS PRO' },
+  controlroom: { cls: () => ControlRoomPro, name: 'CONTROL ROOM PRO' },
+  stereotune: { cls: () => StereoTune, name: 'STEREO TUNE' },
+};
+
+function serializeComponent(c) {
+  return { id: c.id, params: JSON.parse(JSON.stringify(c.params)), bypassed: c.bypassed };
+}
+function deserializeComponent(data) {
+  const reg = COMPONENT_REGISTRY[data.id];
+  if (!reg) return null;
+  const c = new (reg.cls())();
+  c._pendingParams = data.params;
+  c._pendingBypass = data.bypassed;
+  return c;
+}
+function serializeRack() {
+  return {
+    rack: engine.components.map(serializeComponent),
+    globalFx: engine.globalFxComponents.map(serializeComponent)
+  };
+}
+function restoreRack(snapshot) {
+  // Support old format (array) and new format (object with rack + globalFx)
+  const rackData = Array.isArray(snapshot) ? snapshot : (snapshot.rack || []);
+  const gfxData = Array.isArray(snapshot) ? [] : (snapshot.globalFx || []);
+  // Remove current
+  engine.components.forEach(c => { try { c.getOutput().disconnect(); } catch(e){} });
+  engine.globalFxComponents.forEach(c => { try { c.getOutput().disconnect(); } catch(e){} });
+  engine.components = [];
+  engine.globalFxComponents = [];
+  const restore = (data, arr) => {
+    const c = deserializeComponent(data);
+    if (c) {
+      c.build(engine.ctx);
+      if (c._pendingParams) Object.entries(c._pendingParams).forEach(([k,v]) => c.setParam(k, v));
+      if (c._pendingBypass) c.bypassed = true;
+      arr.push(c);
+    }
+  };
+  rackData.forEach(d => restore(d, engine.components));
+  gfxData.forEach(d => restore(d, engine.globalFxComponents));
+  engine._rebuildChain();
+  selected = null;
+  renderRack();
+  updateSignalFlow();
+}
+
+// ============================================================
+// UNDO / REDO HISTORY
+// ============================================================
+const history = { stack: [], pointer: -1 };
+function pushHistory() {
+  // Chop off future (after undo)
+  history.stack = history.stack.slice(0, history.pointer + 1);
+  history.stack.push(JSON.stringify(serializeRack()));
+  if (history.stack.length > 50) history.stack.shift();
+  history.pointer = history.stack.length - 1;
+}
+function undo() {
+  if (history.pointer <= 0) { toast('Nothing to undo'); return; }
+  history.pointer--;
+  restoreRack(JSON.parse(history.stack[history.pointer]));
+  toast('Undo');
+}
+function redo() {
+  if (history.pointer >= history.stack.length - 1) { toast('Nothing to redo'); return; }
+  history.pointer++;
+  restoreRack(JSON.parse(history.stack[history.pointer]));
+  toast('Redo');
+}
+
+// Component clipboard
+let componentClipboard = null;
+
+// ============================================================
+// APP STATE & RENDER
+// ============================================================
+const engine = new AudioEngine();
+let selected = null;
+
+const PRESETS = [
+  'Wide Stereo Bass','Vocal Support pop','Voice Presax-D-Tree','Voice Polish','Wah-Gling Machine',
+  'Warm Ensemble','Warm Tweed','Warm Twin Echos','Warm Vocals','Washington','Water','Wet Alley',
+  'Wet Saxofine','Whisper Hall','White Clean','Wide open Tom','Wide Remember','Wide Stereo Bass'
+];
+
+const COLORS = ['#ff4444','#ff8800','#ffdd00','#88dd22','#22ddaa','#2288dd','#6644ff','#cc44ff'];
+
+function initBrowser() {
+  const filtersEl = document.getElementById('colorFilters');
+  COLORS.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'color-tag';
+    d.style.background = c;
+    filtersEl.appendChild(d);
+  });
+  const listEl = document.getElementById('presetList');
+  PRESETS.forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'preset-item' + (p === 'Wide Stereo Bass' && i === PRESETS.length - 1 ? ' active' : '');
+    d.textContent = p;
+    d.addEventListener('click', () => {
+      document.querySelectorAll('.preset-item').forEach(x => x.classList.remove('active'));
+      d.classList.add('active');
+      document.getElementById('presetName').textContent = p;
+    });
+    listEl.appendChild(d);
+  });
+}
+
+function renderRack() {
+  const container = document.getElementById('compContainer');
+  container.innerHTML = '';
+  if (engine.components.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'rack-drop-hint';
+    hint.textContent = 'RACK IS EMPTY — ADD COMPONENTS FROM THE BROWSER';
+    container.appendChild(hint);
+  } else {
+    engine.components.forEach(c => {
+      const el = c.render();
+      if (c.bypassed) el.classList.add('off');
+      container.appendChild(el);
+    });
+  }
+  const gfx = document.getElementById('globalFxContainer');
+  gfx.innerHTML = '';
+  if (engine.globalFxComponents.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'rack-drop-hint';
+    hint.textContent = 'GLOBAL FX — APPLIED AFTER THE RACK';
+    gfx.appendChild(hint);
+  } else {
+    engine.globalFxComponents.forEach(c => {
+      const el = c.render();
+      if (c.bypassed) el.classList.add('off');
+      gfx.appendChild(el);
+    });
+  }
+}
+
+function updateSignalFlow() {
+  const el = document.getElementById('sfBlocks');
+  el.innerHTML = '';
+  const renderBlock = (c, last) => {
+    const block = document.createElement('div');
+    block.className = 'sf-block' + (c.bypassed ? ' bypassed' : '') + (selected === c ? ' selected' : '');
+    block.textContent = c.name;
+    block.addEventListener('click', () => selectComponent(c));
+    el.appendChild(block);
+    if (!last) {
+      const a = document.createElement('div');
+      a.className = 'sf-arrow';
+      a.textContent = '▼';
+      el.appendChild(a);
+    }
+  };
+  // Rack section
+  engine.components.forEach((c, i) => {
+    renderBlock(c, i === engine.components.length - 1 && engine.globalFxComponents.length === 0);
+  });
+  // Global FX section (with divider if there are global fx components)
+  if (engine.globalFxComponents.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'sf-arrow';
+    divider.textContent = '▼';
+    el.appendChild(divider);
+    const gfxLabel = document.createElement('div');
+    gfxLabel.style.cssText = 'font-size:8px;letter-spacing:1px;color:#6aa3ff;padding:2px 0;font-weight:700;';
+    gfxLabel.textContent = 'GLOBAL FX';
+    el.appendChild(gfxLabel);
+    const divider2 = document.createElement('div');
+    divider2.className = 'sf-arrow';
+    divider2.textContent = '▼';
+    el.appendChild(divider2);
+    engine.globalFxComponents.forEach((c, i) => {
+      renderBlock(c, i === engine.globalFxComponents.length - 1);
+    });
+  }
+}
+
+function selectComponent(comp) {
+  selected = comp;
+  // Update signal flow highlight
+  updateSignalFlow();
+  // Update rack visual selection
+  document.querySelectorAll('.comp').forEach(el => {
+    el.classList.toggle('selected', el.dataset.id === comp.id);
+  });
+  // Update info pane
+  updateInfoPane({ component: comp });
+}
+
+function removeComponent(comp) {
+  let idx = engine.components.indexOf(comp);
+  let arr = engine.components;
+  if (idx === -1) {
+    idx = engine.globalFxComponents.indexOf(comp);
+    arr = engine.globalFxComponents;
+  }
+  if (idx === -1) return;
+  arr.splice(idx, 1);
+  engine._rebuildChain();
+  if (selected === comp) selected = null;
+  renderRack();
+  updateSignalFlow();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+async function boot() {
+  initBrowser();
+  await engine.init();
+  engine.addComponent(new FastComp());
+  engine.addComponent(new BassPro());
+  engine.addComponent(new ControlRoomPro());
+  engine.addComponent(new StereoTune());
+  renderRack();
+  updateSignalFlow();
+  selectComponent(engine.components[0]);
+
+  // ========== HEADER CONTROLS ==========
+
+  // (1) Main menu with cascading submenus
+  const mainMenuBtn = document.getElementById('mainMenuBtn');
+  const mainMenu = document.getElementById('mainMenu');
+  const submenus = {
+    fileSub: document.getElementById('fileSub'),
+    editSub: document.getElementById('editSub'),
+    helpSub: document.getElementById('helpSub'),
+  };
+  function closeAllMenus() {
+    mainMenu.classList.remove('open');
+    Object.values(submenus).forEach(s => s.classList.remove('open'));
+    mainMenuBtn.classList.remove('active');
+  }
+  mainMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (mainMenu.classList.contains('open')) closeAllMenus();
+    else { mainMenu.classList.add('open'); mainMenuBtn.classList.add('active'); }
+  });
+  // Hover to open submenus
+  mainMenu.querySelectorAll('.has-sub').forEach(item => {
+    item.addEventListener('mouseenter', () => {
+      Object.values(submenus).forEach(s => s.classList.remove('open'));
+      const sub = submenus[item.dataset.sub];
+      if (sub) {
+        const rect = item.getBoundingClientRect();
+        sub.style.left = rect.right + 'px';
+        sub.style.top = rect.top + 'px';
+        sub.classList.add('open');
+      }
+    });
+  });
+  // Keep submenu open while hovering
+  Object.values(submenus).forEach(sub => {
+    sub.addEventListener('mouseleave', (e) => {
+      if (!mainMenu.contains(e.relatedTarget)) sub.classList.remove('open');
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!mainMenu.contains(e.target) &&
+        !Object.values(submenus).some(s => s.contains(e.target)) &&
+        e.target !== mainMenuBtn) {
+      closeAllMenus();
+    }
+  });
+  // Submenu action handlers
+  Object.values(submenus).forEach(sub => {
+    sub.querySelectorAll('.main-menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        handleMenuAction(item.dataset.action);
+        closeAllMenus();
+      });
+    });
+  });
+
+  // (2) Browser toggle
+  const browserBtn = document.getElementById('browserToggleBtn');
+  const mainEl = document.querySelector('.main');
+  browserBtn.addEventListener('click', () => {
+    browserBtn.classList.toggle('active');
+    mainEl.classList.toggle('no-browser');
+  });
+
+  // (3) Sidebar toggle
+  const sidebarBtn = document.getElementById('sidebarToggleBtn');
+  sidebarBtn.addEventListener('click', () => {
+    sidebarBtn.classList.toggle('active');
+    mainEl.classList.toggle('no-sidebar');
+  });
+
+  // (4) View size / zoom — 9 steps from 75% to 200%
+  const rackZoom = document.getElementById('rackZoom');
+  const zoomPct = document.getElementById('zoomPct');
+  const ZOOM_STEPS = [0.75, 0.90, 1.0, 1.15, 1.30, 1.45, 1.60, 1.80, 2.00];
+  let zoomIdx = 2;
+  const applyZoom = () => {
+    const z = ZOOM_STEPS[zoomIdx];
+    rackZoom.style.transform = `scale(${z})`;
+    rackZoom.style.width = `${100 / z}%`;
+    zoomPct.textContent = Math.round(z * 100) + '%';
+  };
+  document.getElementById('zoomInBtn').addEventListener('click', () => {
+    zoomIdx = Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1); applyZoom();
+  });
+  document.getElementById('zoomOutBtn').addEventListener('click', () => {
+    zoomIdx = Math.max(0, zoomIdx - 1); applyZoom();
+  });
+
+  // Rack size drag handle (bottom-right of rack)
+  // Drag up = smaller rack (more compact), drag down = larger rack
+  const rackSizeHandle = document.getElementById('rackSizeHandle');
+  const rackSizeTooltip = document.getElementById('rackSizeTooltip');
+  let rackSize = 1.0;
+  const MIN_RS = 0.6, MAX_RS = 1.4;
+  const applyRackSize = () => {
+    document.documentElement.style.setProperty('--rack-size', rackSize.toFixed(2));
+    rackSizeTooltip.textContent = `Rack Size: ${Math.round(rackSize * 100)}%`;
+  };
+  rackSizeHandle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    rackSizeHandle.classList.add('dragging');
+    rackSizeTooltip.classList.add('show');
+    const startY = e.clientY;
+    const startSize = rackSize;
+    rackSizeHandle.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      // drag DOWN increases, drag UP decreases
+      const dy = ev.clientY - startY;
+      rackSize = Math.max(MIN_RS, Math.min(MAX_RS, startSize + dy / 200));
+      applyRackSize();
+    };
+    const up = () => {
+      rackSizeHandle.removeEventListener('pointermove', move);
+      rackSizeHandle.removeEventListener('pointerup', up);
+      rackSizeHandle.classList.remove('dragging');
+      setTimeout(() => rackSizeTooltip.classList.remove('show'), 600);
+    };
+    rackSizeHandle.addEventListener('pointermove', move);
+    rackSizeHandle.addEventListener('pointerup', up);
+  });
+  rackSizeHandle.addEventListener('dblclick', () => {
+    rackSize = 1.0;
+    applyRackSize();
+    rackSizeTooltip.classList.add('show');
+    setTimeout(() => rackSizeTooltip.classList.remove('show'), 800);
+  });
+
+  // (5) Input selector — shared between header and sidebar
+  const setInputRoute = (route) => {
+    engine.setInputRoute(route);
+    // Sync both UI selectors
+    document.querySelectorAll('.in-sel button').forEach(b => {
+      b.classList.toggle('active', b.dataset.in === route);
+    });
+    const labels = { L: 'Left Input', ST: 'Stereo Input', R: 'Right Input' };
+    document.getElementById('prefInConfig').textContent = labels[route];
+    toast(labels[route]);
+  };
+  document.querySelectorAll('.in-sel button').forEach(btn => {
+    btn.addEventListener('click', () => setInputRoute(btn.dataset.in));
+  });
+
+  // (6) Input Level knob
+  wireLevelKnob('inLevelKnob', (db) => engine.setInputLevelDb(db));
+
+  // (7) Gate on/off
+  const gateOnBtn = document.getElementById('gateOnBtn');
+  gateOnBtn.addEventListener('click', () => {
+    const on = !gateOnBtn.classList.contains('active');
+    gateOnBtn.classList.toggle('active', on);
+    engine.setGateEnabled(on);
+    toast('Gate ' + (on ? 'ON' : 'OFF'));
+  });
+
+  // (8) Threshold Learn
+  const learnBtn = document.getElementById('learnBtn');
+  let learning = false;
+  learnBtn.addEventListener('click', async () => {
+    if (learning) return;
+    learning = true;
+    learnBtn.classList.add('learning');
+    learnBtn.textContent = 'LEARNING';
+    toast('Analyzing background noise... play softly');
+    // Sample RMS for 2 seconds from the gate worklet
+    let maxRms = 0;
+    const start = performance.now();
+    const sample = () => {
+      if (performance.now() - start > 2000) {
+        // Set threshold to max observed + 6 dB margin
+        const db = maxRms > 0 ? 20 * Math.log10(maxRms) + 6 : -60;
+        const clamped = Math.max(-90, Math.min(0, db));
+        engine.setGateThreshold(clamped);
+        updateGateThreshKnob(clamped);
+        learnBtn.classList.remove('learning');
+        learnBtn.textContent = 'LEARN';
+        learning = false;
+        toast(`Gate threshold set to ${clamped.toFixed(1)} dB`);
+        return;
+      }
+      if (engine._gateRMS > maxRms) maxRms = engine._gateRMS;
+      requestAnimationFrame(sample);
+    };
+    sample();
+  });
+
+  // (9) Gate Threshold knob (-90..0 dB)
+  const gateThreshKnob = document.getElementById('gateThreshKnob');
+  const gateThreshInd = gateThreshKnob.querySelector('.level-knob-ind');
+  let gateThreshVal = -60;
+  const updateGateThreshKnob = (val) => {
+    gateThreshVal = val;
+    const norm = (val - (-90)) / 90;
+    const angle = -135 + norm * 270;
+    gateThreshInd.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+    engine.setGateThreshold(val);
+  };
+  updateGateThreshKnob(-60);
+  let gtStartY = 0, gtStartVal = 0;
+  gateThreshKnob.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    gtStartY = e.clientY; gtStartVal = gateThreshVal;
+    gateThreshKnob.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const dy = gtStartY - ev.clientY;
+      const v = Math.max(-90, Math.min(0, gtStartVal + (dy / 150) * 90));
+      updateGateThreshKnob(v);
+    };
+    const up = () => {
+      gateThreshKnob.removeEventListener('pointermove', move);
+      gateThreshKnob.removeEventListener('pointerup', up);
+    };
+    gateThreshKnob.addEventListener('pointermove', move);
+    gateThreshKnob.addEventListener('pointerup', up);
+  });
+  gateThreshKnob.addEventListener('dblclick', () => updateGateThreshKnob(-60));
+
+  // (10) Output Level knob
+  wireLevelKnob('outLevelKnob', (db) => engine.setOutputLevelDb(db), -2);
+
+  // (11) Limit
+  const limitBtn = document.getElementById('limitBtn');
+  limitBtn.addEventListener('click', () => {
+    const on = !limitBtn.classList.contains('active');
+    limitBtn.classList.toggle('active', on);
+    engine.setLimiterEnabled(on);
+    toast('Limiter ' + (on ? 'ON (0 dBFS ceiling)' : 'OFF'));
+  });
+
+  // (13) Audio Engine on/off
+  const powerBtn = document.getElementById('powerBtn');
+  powerBtn.addEventListener('click', async () => {
+    const on = !powerBtn.classList.contains('active');
+    powerBtn.classList.toggle('active', on);
+    if (on) await engine.ctx.resume();
+    engine.setEnginePower(on);
+    toast('Audio engine ' + (on ? 'ON' : 'OFF'));
+  });
+
+  // (14) NI Logo -> About
+  document.getElementById('niLogo').addEventListener('click', () => {
+    document.getElementById('aboutDialog').classList.add('open');
+  });
+
+  // Dialog close buttons
+  document.querySelectorAll('.dialog-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay || e.target.dataset.close !== undefined) {
+        overlay.classList.remove('open');
+      }
+    });
+    overlay.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => overlay.classList.remove('open'));
+    });
+  });
+
+  // ========== SOURCE CONTROLS ==========
+  document.getElementById('inputSource').addEventListener('change', async (e) => {
+    await engine.setSource(e.target.value);
+  });
+  document.getElementById('loadFileBtn').addEventListener('click', () => {
+    document.getElementById('fileInput').click();
+  });
+  document.getElementById('fileInput').addEventListener('change', async (e) => {
+    if (e.target.files[0]) {
+      await engine.loadFile(e.target.files[0]);
+      document.getElementById('inputSource').value = 'file';
+      engine.playFile();
+    }
+  });
+  document.getElementById('playBtn').addEventListener('click', async () => {
+    await engine.resume();
+    if (engine.sourceType === 'file') engine.playFile();
+  });
+  document.getElementById('stopBtn').addEventListener('click', () => engine.stopFile());
+
+  // Preset nav (cosmetic for now)
+  document.getElementById('prevPreset').addEventListener('click', () => toast('Previous preset'));
+  document.getElementById('nextPreset').addEventListener('click', () => toast('Next preset'));
+
+  // Master mute button in signal flow
+  const sfMuteBtn = document.getElementById('sfMuteBtn');
+  let muted = false;
+  sfMuteBtn.addEventListener('click', () => {
+    muted = !muted;
+    sfMuteBtn.classList.toggle('muted', muted);
+    engine.setOutputMuted(muted);
+    toast(muted ? 'Master MUTED' : 'Master unmuted');
+  });
+
+  // Clickable info pane title → open manual link (stub)
+  const sfInfoTitle = document.getElementById('sfInfoTitle');
+  sfInfoTitle.addEventListener('click', () => {
+    toast('Opening manual section — not available in web edition');
+  });
+
+  // Expand/Collapse info pane
+  const sfInfoToggle = document.getElementById('sfInfoToggle');
+  const sfInfo = document.getElementById('sfInfo');
+  sfInfoToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sfInfo.classList.toggle('collapsed');
+  });
+
+  // Peak meter buffers
+  const inPeakBuf = new Float32Array(engine.inPeakAnalyser.fftSize);
+  const outPeakBuf = new Float32Array(engine.outPeakAnalyser.fftSize);
+  const inMeterCanvas = document.getElementById('inMeter');
+  const outMeterCanvas = document.getElementById('outMeter');
+  const inClip = document.getElementById('inClip');
+  const outClip = document.getElementById('outClip');
+  let inClipTimer = 0, outClipTimer = 0;
+  let inPeakHold = 0, outPeakHold = 0;
+
+  function drawPeakMeter(canvas, peak, held) {
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== canvas.clientWidth * dpr) {
+      canvas.width = canvas.clientWidth * dpr;
+      canvas.height = canvas.clientHeight * dpr;
+    }
+    const c = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    c.clearRect(0, 0, w, h);
+    // bar
+    const barW = Math.min(w, peak * w);
+    const grad = c.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, '#2d8a3e');
+    grad.addColorStop(0.6, '#ffb020');
+    grad.addColorStop(0.85, '#ff8800');
+    grad.addColorStop(1, '#ff3322');
+    c.fillStyle = grad;
+    c.fillRect(0, 0, barW, h);
+    // peak hold line
+    if (held > 0.02) {
+      c.fillStyle = '#fff';
+      c.fillRect(held * w - 1, 0, 2, h);
+    }
+    // segment dividers
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let i = 1; i < 20; i++) c.fillRect((w / 20) * i - 0.5, 0, 1, h);
+  }
+
+  // Animation loop
+  let lastCpu = performance.now();
+  function frame() {
+    engine.components.forEach(c => {
+      if (c.drawMeter) c.drawMeter();
+      if (c.updateTuner) c.updateTuner();
+    });
+
+    // Peak metering
+    engine.inPeakAnalyser.getFloatTimeDomainData(inPeakBuf);
+    let inPeak = 0;
+    for (let i = 0; i < inPeakBuf.length; i++) {
+      const a = Math.abs(inPeakBuf[i]);
+      if (a > inPeak) inPeak = a;
+    }
+    engine.outPeakAnalyser.getFloatTimeDomainData(outPeakBuf);
+    let outPeak = 0;
+    for (let i = 0; i < outPeakBuf.length; i++) {
+      const a = Math.abs(outPeakBuf[i]);
+      if (a > outPeak) outPeak = a;
+    }
+    // peak hold decay
+    inPeakHold = Math.max(inPeak, inPeakHold * 0.97);
+    outPeakHold = Math.max(outPeak, outPeakHold * 0.97);
+    drawPeakMeter(inMeterCanvas, inPeak, inPeakHold);
+    drawPeakMeter(outMeterCanvas, outPeak, outPeakHold);
+    // Clip indicator (>= 0.98 linear ~ -0.17 dBFS)
+    if (inPeak > 0.98) { inClip.classList.add('clipping'); inClipTimer = 60; }
+    else if (inClipTimer > 0) { inClipTimer--; if (inClipTimer === 0) inClip.classList.remove('clipping'); }
+    if (outPeak > 0.98) { outClip.classList.add('clipping'); outClipTimer = 60; }
+    else if (outClipTimer > 0) { outClipTimer--; if (outClipTimer === 0) outClip.classList.remove('clipping'); }
+
+    // CPU estimate
+    const now = performance.now();
+    const dt = now - lastCpu;
+    lastCpu = now;
+    engine.cpuLoad = engine.cpuLoad * 0.9 + (engine.components.length * 0.8 + dt * 0.1) * 0.1;
+    document.getElementById('cpuVal').textContent = engine.cpuLoad.toFixed(1);
+    requestAnimationFrame(frame);
+  }
+  frame();
+
+  // Click anywhere to resume audio ctx
+  document.addEventListener('click', () => engine.resume(), { once: true });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    // Don't hijack inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleMenuAction('undo'); }
+    else if (ctrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleMenuAction('redo'); }
+    else if (ctrl && e.key === 'x') { e.preventDefault(); handleMenuAction('cut'); }
+    else if (ctrl && e.key === 'c') { e.preventDefault(); handleMenuAction('copy'); }
+    else if (ctrl && e.key === 'v') { e.preventDefault(); handleMenuAction('paste'); }
+    else if (ctrl && e.key === 'a') { e.preventDefault(); handleMenuAction('select-all'); }
+    else if (ctrl && e.key === 'n') { e.preventDefault(); handleMenuAction('new-preset'); }
+    else if (ctrl && e.key === 'o') { e.preventDefault(); handleMenuAction('open-preset'); }
+    else if (ctrl && e.key === 's') { e.preventDefault(); handleMenuAction('save-preset'); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selected) { e.preventDefault(); handleMenuAction('delete'); }
+    }
+  });
+
+  // Initial history snapshot
+  pushHistory();
+
+  toast('Click Input → Microphone or load a file to begin');
+}
+
+// Menu action handler (cut/copy/paste/delete/undo/redo/preferences/about/etc.)
+function handleMenuAction(action) {
+  switch (action) {
+    case 'undo': undo(); break;
+    case 'redo': redo(); break;
+    case 'cut':
+      if (!selected) { toast('No component selected'); return; }
+      componentClipboard = serializeComponent(selected);
+      pushHistory();
+      removeComponent(selected);
+      toast('Cut: ' + componentClipboard.id);
+      break;
+    case 'copy':
+      if (!selected) { toast('No component selected'); return; }
+      componentClipboard = serializeComponent(selected);
+      toast('Copied: ' + componentClipboard.id);
+      break;
+    case 'paste':
+      if (!componentClipboard) { toast('Clipboard empty'); return; }
+      pushHistory();
+      const c = deserializeComponent(componentClipboard);
+      if (c) {
+        c.build(engine.ctx);
+        if (c._pendingParams) Object.entries(c._pendingParams).forEach(([k,v]) => c.setParam(k, v));
+        const insertIdx = selected ? engine.components.indexOf(selected) + 1 : engine.components.length;
+        engine.components.splice(insertIdx, 0, c);
+        engine._rebuildChain();
+        renderRack();
+        updateSignalFlow();
+        selectComponent(c);
+        toast('Pasted: ' + c.id);
+      }
+      break;
+    case 'delete':
+      if (!selected) { toast('No component selected'); return; }
+      pushHistory();
+      removeComponent(selected);
+      toast('Deleted');
+      break;
+    case 'select-all':
+      toast('Select All — single-selection model (select last)');
+      if (engine.components.length) selectComponent(engine.components[engine.components.length - 1]);
+      break;
+    case 'clear-rack':
+      if (confirm('Clear all components from the rack and Global FX?')) {
+        pushHistory();
+        while (engine.components.length) removeComponent(engine.components[0]);
+        while (engine.globalFxComponents.length) removeComponent(engine.globalFxComponents[0]);
+        toast('Rack cleared');
+      }
+      break;
+    case 'new-preset':
+      pushHistory();
+      while (engine.components.length) removeComponent(engine.components[0]);
+      while (engine.globalFxComponents.length) removeComponent(engine.globalFxComponents[0]);
+      document.getElementById('presetName').textContent = 'Untitled';
+      toast('New preset');
+      break;
+    case 'open-preset':
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = '.grp,.json';
+      inp.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        try {
+          const data = JSON.parse(text);
+          pushHistory();
+          restoreRack(data.components || []);
+          document.getElementById('presetName').textContent = data.name || file.name.replace(/\.[^.]+$/, '');
+          toast('Opened: ' + file.name);
+        } catch(err) { toast('Invalid preset file'); }
+      });
+      inp.click();
+      break;
+    case 'save-preset':
+    case 'save-preset-as':
+    case 'export-preset': {
+      const data = {
+        name: document.getElementById('presetName').textContent,
+        version: 1,
+        components: serializeRack()
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (data.name || 'preset') + '.grp.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Preset exported');
+      break;
+    }
+    case 'import-preset':
+      handleMenuAction('open-preset');
+      break;
+    case 'preferences':
+      updatePrefsDialog();
+      document.getElementById('prefsDialog').classList.add('open');
+      break;
+    case 'native-access':
+    case 'manual':
+    case 'kb':
+    case 'product':
+      toast('External link — not available in web edition');
+      break;
+    case 'about':
+      document.getElementById('aboutDialog').classList.add('open');
+      break;
+  }
+}
+
+function updatePrefsDialog() {
+  if (!engine.ctx) return;
+  document.getElementById('prefCtxState').textContent = engine.ctx.state;
+  document.getElementById('prefSampleRate').textContent = engine.ctx.sampleRate + ' Hz';
+  document.getElementById('prefBaseLat').textContent =
+    (engine.ctx.baseLatency ? (engine.ctx.baseLatency * 1000).toFixed(2) + ' ms' : 'unknown');
+  document.getElementById('prefOutLat').textContent =
+    (engine.ctx.outputLatency ? (engine.ctx.outputLatency * 1000).toFixed(2) + ' ms' : 'unknown');
+}
+
+// Helper for small level knobs in header
+function wireLevelKnob(id, onChange, startDb = 0) {
+  const knob = document.getElementById(id);
+  if (!knob) return;
+  const ind = knob.querySelector('.level-knob-ind');
+  const min = -20, max = 20;
+  let val = startDb;
+  const update = () => {
+    const range = max - min;
+    const norm = (val - min) / range;
+    const angle = -135 + norm * 270;
+    ind.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+    onChange(val);
+  };
+  update();
+  let startY = 0, startVal = 0;
+  knob.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    startY = e.clientY; startVal = val;
+    knob.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const dy = startY - ev.clientY;
+      val = Math.max(min, Math.min(max, startVal + (dy / 100) * (max - min)));
+      update();
+    };
+    const up = () => {
+      knob.removeEventListener('pointermove', move);
+      knob.removeEventListener('pointerup', up);
+    };
+    knob.addEventListener('pointermove', move);
+    knob.addEventListener('pointerup', up);
+  });
+  knob.addEventListener('dblclick', () => { val = 0; update(); });
+}
+
+boot();
+</script>
+</body>
+</html>
