@@ -49,6 +49,18 @@ export class AudioEngine {
     this._powerOn = true;
     this._mutedOut = false;
     this.limiterEnabled = false;
+
+    // ---- Sidechain bus ----
+    // Mirrors the Guitar Rig stereo sidechain input.  Components
+    // with sidechaining (Fast Comp, Auto Filter, Freak, Envelope,
+    // etc.) tap `sidechainInput` as an alternative control signal
+    // in place of their internal detector.
+    this.sidechainSource = 'none';          // 'none' | 'tap' | 'file'
+    this.sidechainFileBuffer = null;
+    this.sidechainFileSource = null;
+    this._scTapGain = null;                  // for 'tap' mode
+    this.scAnalyser = null;
+    this._scBuf = null;
   }
 
   async init() {
@@ -100,9 +112,14 @@ export class AudioEngine {
     // Global FX junction
     this.globalFxStart = this.ctx.createGain();
 
-    // External sidechain bus (for future components to tap)
+    // External sidechain bus (components tap this as a control signal)
     this.sidechainInput = this.ctx.createGain();
-    this.sidechainInput.gain.value = 0;
+    this.sidechainInput.gain.value = 1;
+    this.scAnalyser = this.ctx.createAnalyser();
+    this.scAnalyser.fftSize = 1024;
+    this.scAnalyser.smoothingTimeConstant = 0;
+    this.sidechainInput.connect(this.scAnalyser);
+    this._scBuf = new Float32Array(this.scAnalyser.fftSize);
 
     // Limiter — DynamicsCompressor used as a brickwall-ish output limiter
     this.limiter = this.ctx.createDynamicsCompressor();
@@ -275,6 +292,64 @@ export class AudioEngine {
       prev2 = nodeOut;
     }
     try { prev2.connect(this.output); } catch (e) {}
+  }
+
+  // ============================================================
+  // SIDECHAIN BUS
+  // ============================================================
+
+  // Returns the current peak magnitude of the sidechain bus (0..1).
+  // Called once per frame by main.js and passed to every component
+  // that opts in via `updateSidechain(peak)`.
+  getSidechainPeak() {
+    if (!this.scAnalyser) return 0;
+    this.scAnalyser.getFloatTimeDomainData(this._scBuf);
+    let peak = 0;
+    for (let i = 0; i < this._scBuf.length; i++) {
+      const a = Math.abs(this._scBuf[i]);
+      if (a > peak) peak = a;
+    }
+    return peak;
+  }
+
+  // Routes a signal into the sidechain bus.
+  //   'none' — silent bus (sidechaining inactive even if enabled per-comp)
+  //   'tap'  — mirrors the main input post-level, pre-gate
+  //   'file' — plays the loaded sidechain file in a loop
+  setSidechainSource(type) {
+    if (!this.ctx) { this.sidechainSource = type; return; }
+    // Tear down any previous source
+    try { this._scTapGain && this._scTapGain.disconnect(); } catch (e) {}
+    try { this.sidechainFileSource && this.sidechainFileSource.stop(); } catch (e) {}
+    this._scTapGain = null;
+    this.sidechainFileSource = null;
+    this.sidechainSource = type;
+
+    if (type === 'tap') {
+      this._scTapGain = this.ctx.createGain();
+      this._scTapGain.gain.value = 1;
+      this.inputLevel.connect(this._scTapGain);
+      this._scTapGain.connect(this.sidechainInput);
+    } else if (type === 'file' && this.sidechainFileBuffer) {
+      this._startSidechainFile();
+    }
+  }
+
+  async loadSidechainFile(file) {
+    await this.init();
+    const arr = await file.arrayBuffer();
+    this.sidechainFileBuffer = await this.ctx.decodeAudioData(arr);
+    if (this.sidechainSource === 'file') this._startSidechainFile();
+  }
+
+  _startSidechainFile() {
+    if (!this.sidechainFileBuffer) return;
+    try { this.sidechainFileSource && this.sidechainFileSource.stop(); } catch (e) {}
+    this.sidechainFileSource = this.ctx.createBufferSource();
+    this.sidechainFileSource.buffer = this.sidechainFileBuffer;
+    this.sidechainFileSource.loop = true;
+    this.sidechainFileSource.connect(this.sidechainInput);
+    this.sidechainFileSource.start();
   }
 
   async setSource(type) {

@@ -161,6 +161,30 @@
         <h4>PROCESSING</h4>
         <div class="row"><span>Oversampling</span><strong>4× (waveshapers)</strong></div>
         <div class="row"><span>Param smoothing</span><strong>10 ms</strong></div>
+
+        <h4>SIDECHAIN</h4>
+        <div class="row">
+          <span>Sidechain source</span>
+          <select id="prefScSource" class="pref-select">
+            <option value="none">None (sidechain off)</option>
+            <option value="tap">Main input (tap)</option>
+            <option value="file">Audio file (loop)</option>
+          </select>
+        </div>
+        <div class="row">
+          <span>Sidechain file</span>
+          <div>
+            <button class="dialog-btn" id="prefScLoadBtn">Load File...</button>
+            <input type="file" id="prefScFileInput" accept="audio/*" style="display:none" />
+            <strong id="prefScFileName" style="margin-left:8px;">—</strong>
+          </div>
+        </div>
+        <div class="row"><span>Bus peak</span><strong id="prefScPeak">0.00</strong></div>
+        <p style="margin-top:6px; color: var(--text-mute); font-size: 10px;">
+          Enable per-component sidechaining with the S.C. button on a component. The external
+          sidechain bus is a dedicated control-signal input that ducks compatible components
+          independently of the main signal path.
+        </p>
       </div>
       <div class="dialog-footer">
         <button class="dialog-btn" data-close>Cancel</button>

@@ -5,11 +5,17 @@
 import { Component } from './base.js';
 import { knobHTML, wireComponent } from './wiring.js';
 import { dbToGain } from '../audio/dsp-utils.js';
+import { updateInfoPane, COMPONENT_INFO } from '../ui/info-pane.js';
+import { selected } from '../app-state.js';
 
 export class FastComp extends Component {
   constructor() {
     super('FAST COMP', 'fastcomp');
     this.params = { input: 0, attack: 20, ratio: 4, makeup: 0 };
+    // ---- Sidechain state ----
+    this.sidechainEnabled = false;
+    this._scEnv = 0;       // envelope follower state (0..1)
+    this._scGR = 0;        // last gain-reduction in dB (for UI)
   }
 
   _buildDSP(ctx) {
@@ -23,6 +29,11 @@ export class FastComp extends Component {
     this.nodes.comp.release.value = 0.25;
     this.nodes.makeup = ctx.createGain();
     this.nodes.makeup.gain.value = 1;
+    // Sidechain ducking stage — applied AFTER makeup.  When sidechaining
+    // is disabled this node is a unity passthrough.  When enabled, the
+    // frame loop drives its gain from the engine's sidechain bus peak.
+    this.nodes.scGain = ctx.createGain();
+    this.nodes.scGain.gain.value = 1;
   }
 
   _connectDSP() {
@@ -30,7 +41,45 @@ export class FastComp extends Component {
       .connect(this.nodes.inLevel)
       .connect(this.nodes.comp)
       .connect(this.nodes.makeup)
+      .connect(this.nodes.scGain)
       .connect(this.wetGain);
+  }
+
+  // ---- Sidechain ----------------------------------------------
+  setSidechainEnabled(on) {
+    this.sidechainEnabled = on;
+    if (!this.ctx) return;
+    if (!on) {
+      // Reset the envelope and restore unity gain
+      this._scEnv = 0;
+      this._scGR = 0;
+      this.nodes.scGain.gain.setTargetAtTime(1, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  // Called once per frame by main.js with the current peak of the
+  // engine's external sidechain bus (0..1).  Implements a simple
+  // threshold/ratio ducker with attack/release envelope follower.
+  updateSidechain(peak) {
+    if (!this.sidechainEnabled || !this.ctx || !this.nodes.scGain) return;
+    // Envelope follower: asymmetric attack/release
+    const atk = 0.4;     // fast attack
+    const rel = 0.05;    // slower release
+    const coef = peak > this._scEnv ? atk : rel;
+    this._scEnv = this._scEnv + coef * (peak - this._scEnv);
+
+    // Convert the envelope to dB and apply a fixed 8:1 ratio above -24 dB
+    const envDb = this._scEnv > 0.000001 ? 20 * Math.log10(this._scEnv) : -120;
+    const threshold = -24;
+    const ratio = 8;
+    let grDb = 0;
+    if (envDb > threshold) {
+      grDb = (envDb - threshold) * (1 - 1 / ratio);
+      if (grDb > 24) grDb = 24;
+    }
+    this._scGR = grDb;
+    const gain = dbToGain(-grDb);
+    this.nodes.scGain.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.005);
   }
 
   _applyParam(key, value) {
@@ -55,6 +104,7 @@ export class FastComp extends Component {
         <div class="comp-name">⊞ FAST COMP</div>
         <div class="comp-preset">▸ INIT</div>
         <div class="comp-spacer"></div>
+        <button class="comp-sc-btn${this.sidechainEnabled ? ' active' : ''}" title="Sidechain (S.C.) — duck this component from the external sidechain bus">S.C.</button>
         <button class="comp-btn bypass active" title="Bypass">●</button>
         <button class="comp-btn" title="Settings">⚙</button>
         <button class="comp-btn" title="Close">✕</button>
@@ -73,6 +123,25 @@ export class FastComp extends Component {
     this.el = el;
     wireComponent(this, el);
     this._meterCanvas = el.querySelector('.gr-meter canvas');
+
+    // Wire the S.C. button
+    const scBtn = el.querySelector('.comp-sc-btn');
+    scBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const on = !this.sidechainEnabled;
+      this.setSidechainEnabled(on);
+      scBtn.classList.toggle('active', on);
+    });
+    scBtn.addEventListener('mouseenter', () => {
+      updateInfoPane({
+        control: 'fastcomp.sidechain',
+        componentName: (COMPONENT_INFO[this.id] || {}).name || this.name,
+      });
+    });
+    scBtn.addEventListener('mouseleave', () => {
+      if (selected) updateInfoPane({ component: selected });
+      else updateInfoPane();
+    });
     return el;
   }
 
@@ -86,7 +155,8 @@ export class FastComp extends Component {
     }
     const ctx2d = c.getContext('2d');
     ctx2d.clearRect(0, 0, c.width, c.height);
-    const reduction = this.nodes.comp.reduction; // negative dB
+    // Combined gain reduction = internal compressor + sidechain ducker
+    const reduction = this.nodes.comp.reduction - this._scGR; // negative dB
     const w = c.width, h = c.height;
     const segs = 20;
     const segW = (w - 10) / segs;

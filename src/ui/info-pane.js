@@ -32,6 +32,7 @@ export const CONTROL_INFO = {
   'fastcomp.attack': { name: 'Attack',   text: 'Sets how quickly the compressor responds to transients. Shorter attack times catch fast peaks but can soften transients; longer attack times let transients through before compression kicks in.' },
   'fastcomp.ratio':  { name: 'Ratio',    text: 'Sets the compression ratio. A ratio of 4:1 means that for every 4 dB the signal exceeds the threshold, only 1 dB will pass through.' },
   'fastcomp.makeup': { name: 'Makeup',   text: 'Adjusts the output gain after compression to compensate for gain reduction and match the uncompressed level.' },
+  'fastcomp.sidechain': { name: 'Sidechain (S.C.)', text: 'Routes an external control signal from the global Sidechain bus into this component. When enabled, the compressor ducks in response to the sidechain bus instead of reacting only to its own input — configure the bus source in Preferences → Sidechain.' },
   // Bass Pro
   'basspro.gate':    { name: 'Gate',     text: 'Adjusts the noise gate threshold. Lower values let more of the signal through; higher values suppress quiet noise between notes.' },
   'basspro.bass':    { name: 'Bass',     text: 'Low-shelf filter at 100 Hz. Boost or cut the fundamental frequencies of the bass signal.' },

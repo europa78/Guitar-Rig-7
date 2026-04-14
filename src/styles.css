@@ -769,6 +769,39 @@
   }
   .comp-ms button:hover:not(.active) { color: var(--text); }
 
+  /* Sidechain toggle (S.C.) — appears in the component header */
+  .comp-sc-btn {
+    padding: 2px 6px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+    color: var(--text-mute);
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-right: 4px;
+    cursor: pointer;
+  }
+  .comp-sc-btn:hover { color: var(--text); }
+  .comp-sc-btn.active {
+    color: #6aa3ff;
+    background: var(--bg-3);
+    border-color: #6aa3ff;
+    box-shadow: 0 0 4px rgba(106, 163, 255, 0.35);
+  }
+
+  /* Preferences dialog select */
+  .pref-select {
+    background: var(--bg-0);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-family: inherit;
+  }
+
   /* A disabled/off component dims and its signal flow block shows strike */
   .comp.off .comp-body { opacity: 0.35; filter: grayscale(0.7); pointer-events: auto; }
   .comp.off .comp-header { opacity: 0.7; }

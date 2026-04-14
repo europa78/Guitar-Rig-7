@@ -231,6 +231,8 @@ function updatePrefsDialog() {
     (engine.ctx.baseLatency ? (engine.ctx.baseLatency * 1000).toFixed(2) + ' ms' : 'unknown');
   document.getElementById('prefOutLat').textContent =
     (engine.ctx.outputLatency ? (engine.ctx.outputLatency * 1000).toFixed(2) + ' ms' : 'unknown');
+  const sel = document.getElementById('prefScSource');
+  if (sel) sel.value = engine.sidechainSource || 'none';
 }
 
 // ============================================================
@@ -484,6 +486,29 @@ async function boot() {
     document.getElementById('aboutDialog').classList.add('open');
   });
 
+  // ========== SIDECHAIN CONTROLS (Preferences dialog) ==========
+  const prefScSource = document.getElementById('prefScSource');
+  const prefScLoadBtn = document.getElementById('prefScLoadBtn');
+  const prefScFileInput = document.getElementById('prefScFileInput');
+  const prefScFileName = document.getElementById('prefScFileName');
+  prefScSource.addEventListener('change', (e) => {
+    engine.setSidechainSource(e.target.value);
+    const labels = {
+      none: 'Sidechain bus: OFF',
+      tap:  'Sidechain bus: tapping main input',
+      file: engine.sidechainFileBuffer ? 'Sidechain bus: playing file' : 'Sidechain bus: load a file first',
+    };
+    toast(labels[e.target.value]);
+  });
+  prefScLoadBtn.addEventListener('click', () => prefScFileInput.click());
+  prefScFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await engine.loadSidechainFile(file);
+    prefScFileName.textContent = file.name;
+    toast('Sidechain file loaded: ' + file.name);
+  });
+
   // Dialog close buttons
   document.querySelectorAll('.dialog-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
@@ -579,10 +604,18 @@ async function boot() {
 
   let lastCpu = performance.now();
   function frame() {
+    // Read the external sidechain bus peak once per frame and fan it out
+    // to any component that opts in via updateSidechain(peak).
+    const scPeak = engine.getSidechainPeak ? engine.getSidechainPeak() : 0;
+    const fanOutSidechain = (c) => {
+      if (c.updateSidechain) c.updateSidechain(scPeak);
+    };
     engine.components.forEach(c => {
       if (c.drawMeter) c.drawMeter();
       if (c.updateTuner) c.updateTuner();
+      fanOutSidechain(c);
     });
+    engine.globalFxComponents.forEach(fanOutSidechain);
 
     engine.inPeakAnalyser.getFloatTimeDomainData(inPeakBuf);
     let inPeak = 0;
@@ -610,6 +643,12 @@ async function boot() {
     lastCpu = now;
     engine.cpuLoad = engine.cpuLoad * 0.9 + (engine.components.length * 0.8 + dt * 0.1) * 0.1;
     document.getElementById('cpuVal').textContent = engine.cpuLoad.toFixed(1);
+    // Live sidechain peak in Preferences dialog (only when open)
+    const prefsDlg = document.getElementById('prefsDialog');
+    if (prefsDlg && prefsDlg.classList.contains('open')) {
+      const el = document.getElementById('prefScPeak');
+      if (el) el.textContent = scPeak.toFixed(2);
+    }
     requestAnimationFrame(frame);
   }
   frame();
