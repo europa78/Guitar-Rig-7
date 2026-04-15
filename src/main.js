@@ -14,6 +14,7 @@ import { engine, selected } from './app-state.js';
 import { toast } from './ui/toast.js';
 import { renderRack, updateSignalFlow, selectComponent, removeComponent } from './ui/rack.js';
 import { updateInfoPane } from './ui/info-pane.js';
+import { initBrowser } from './ui/browser.js';
 
 import {
   registerComponent,
@@ -36,37 +37,6 @@ registerComponent('fastcomp',    FastComp,       'FAST COMP');
 registerComponent('basspro',     BassPro,        'BASS PRO');
 registerComponent('controlroom', ControlRoomPro, 'CONTROL ROOM PRO');
 registerComponent('stereotune',  StereoTune,     'STEREO TUNE');
-
-// ---- Browser presets (placeholder content) ----
-const PRESETS = [
-  'Wide Stereo Bass','Vocal Support pop','Voice Presax-D-Tree','Voice Polish','Wah-Gling Machine',
-  'Warm Ensemble','Warm Tweed','Warm Twin Echos','Warm Vocals','Washington','Water','Wet Alley',
-  'Wet Saxofine','Whisper Hall','White Clean','Wide open Tom','Wide Remember','Wide Stereo Bass',
-];
-
-const COLORS = ['#ff4444','#ff8800','#ffdd00','#88dd22','#22ddaa','#2288dd','#6644ff','#cc44ff'];
-
-function initBrowser() {
-  const filtersEl = document.getElementById('colorFilters');
-  COLORS.forEach(c => {
-    const d = document.createElement('div');
-    d.className = 'color-tag';
-    d.style.background = c;
-    filtersEl.appendChild(d);
-  });
-  const listEl = document.getElementById('presetList');
-  PRESETS.forEach((p, i) => {
-    const d = document.createElement('div');
-    d.className = 'preset-item' + (p === 'Wide Stereo Bass' && i === PRESETS.length - 1 ? ' active' : '');
-    d.textContent = p;
-    d.addEventListener('click', () => {
-      document.querySelectorAll('.preset-item').forEach(x => x.classList.remove('active'));
-      d.classList.add('active');
-      document.getElementById('presetName').textContent = p;
-    });
-    listEl.appendChild(d);
-  });
-}
 
 // ---- Clipboard (cut/copy/paste) ----
 let componentClipboard = null;

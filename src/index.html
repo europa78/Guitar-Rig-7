@@ -230,24 +230,52 @@
     <!-- BROWSER -->
     <div class="browser">
       <div class="browser-tabs">
-        <button class="browser-tab active">PRESETS</button>
-        <button class="browser-tab">COMPONENTS</button>
+        <button class="browser-tab active" data-mode="presets">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3">
+            <rect x="2" y="3" width="12" height="2"/>
+            <rect x="2" y="7" width="12" height="2"/>
+            <rect x="2" y="11" width="12" height="2"/>
+          </svg>
+          Presets
+        </button>
+        <button class="browser-tab" data-mode="components">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3">
+            <rect x="2" y="2.5" width="5" height="5"/>
+            <rect x="9" y="2.5" width="5" height="5"/>
+            <rect x="2" y="9" width="5" height="5"/>
+            <rect x="9" y="9" width="5" height="5"/>
+          </svg>
+          Components
+        </button>
+        <button class="browser-user-btn" id="browserUserBtn" title="Show only user content">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3">
+            <circle cx="8" cy="6" r="3"/>
+            <path d="M2.5 14 C3 11 5 10 8 10 C11 10 13 11 13.5 14"/>
+          </svg>
+        </button>
       </div>
       <div class="browser-search">
         <input type="text" placeholder="🔍 Search..." />
       </div>
       <div class="browser-filters" id="colorFilters"></div>
-      <div class="browser-categories">
-        <div class="browser-cat">Input Sources</div>
-        <div class="browser-cat">FX Types</div>
-        <div class="browser-cat">Characters</div>
-        <div class="browser-cat">Amplifiers</div>
-        <div class="browser-cat">Genres</div>
-        <div class="browser-cat">Artists</div>
-        <div class="browser-cat active">Content</div>
+      <div class="browser-categories" id="browserCategories"></div>
+      <div class="browser-curated" id="browserCurated">
+        <span>Curated</span>
+        <button class="curated-layout-btn" title="Layout">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <rect x="2" y="3" width="3" height="2"/>
+            <rect x="6" y="3" width="8" height="2"/>
+            <rect x="2" y="7" width="3" height="2"/>
+            <rect x="6" y="7" width="8" height="2"/>
+            <rect x="2" y="11" width="3" height="2"/>
+            <rect x="6" y="11" width="8" height="2"/>
+          </svg>
+        </button>
       </div>
       <div class="browser-list" id="presetList"></div>
-      <div class="browser-footer">142 Presets</div>
+      <div class="browser-footer">
+        <span id="resultsCount">0 Results</span>
+      </div>
     </div>
 
     <!-- RACK -->
