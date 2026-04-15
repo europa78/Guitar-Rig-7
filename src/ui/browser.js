@@ -2,18 +2,23 @@
 // BROWSER — Presets + Components browsing UI
 // ============================================================
 //
-// Manual reference: "Overview of the Browser"
-//   1. Content selector  (Presets / Components)
-//   2. User Content      (filters to user-created content only)
-//   3. Browser interface (adapts to the selected content type)
+// Manual reference: "Overview of the Browser" + "Presets in the
+// Browser" + "Using the Browser" / "Using Filters".
 //
-// In Presets mode the browser shows:
-//   Search → Color tags → Expandable category filters with tag
-//   pills → Curated header → Results list → Results count.
+// Progressive disclosure: Search → Favorites → Filters narrows
+// down the Results list.  Each element contributes additional
+// filter criteria that combine with AND semantics.
 //
-// In Components mode the browser shows a grid of component tiles
-// (one per registered component). Clicking a tile adds the
-// component to the end of the rack.
+// Presets-side elements covered here:
+//   1. Search field      — substring match on preset name
+//   2. Favorites         — per-preset color tags assigned via the
+//                          context menu on a result; color swatches
+//                          in the top bar filter by favorite color
+//   3. Filters           — expandable category panels with tag pills
+//   4. Results list      — sortable by name / color / random
+//   5. Info pane         — shows the filter tags + properties of
+//                          the selected preset (toggled from the
+//                          browser footer)
 
 import { engine } from '../app-state.js';
 import { COMPONENT_REGISTRY } from '../components/registry.js';
@@ -84,13 +89,28 @@ export const LIBRARY_PRESETS = [
 const state = {
   mode: 'presets',         // 'presets' | 'components'
   search: '',
-  activeColors: new Set(), // Set<string> of hex color codes
+  activeColors: new Set(), // Set<string> of active Favorite color filters
   activeTags: new Set(),   // Set<string> of tag labels
-  openCategories: new Set(['Characters']), // which category panels are expanded
+  openCategories: new Set(['Characters']),
   userContent: false,
   selectedPreset: '1993 Hot Solo Rig',
   selectedComponentId: null,
+  // Per-preset favorite color override (Map<presetName, color>).
+  // Presets without an override fall back to their built-in `color`.
+  favorites: new Map(),
+  // Results-list sort option.
+  sort: 'name-asc',        // 'name-asc' | 'name-desc' | 'color' | 'random'
+  sortRandomSeed: 0,       // bumped each time Random is re-clicked
+  // Info pane open/closed.
+  infoOpen: false,
 };
+
+// Returns the effective favorite color for a preset: an explicit
+// override from the favorites map if present, otherwise the preset's
+// built-in library color tag.
+function favoriteColor(p) {
+  return state.favorites.get(p.name) || p.color;
+}
 
 // ------------------------------------------------------------
 // MATCHING
@@ -101,7 +121,7 @@ function presetMatchesFilters(p) {
   if (state.search) {
     if (!p.name.toLowerCase().includes(state.search.toLowerCase())) return false;
   }
-  if (state.activeColors.size && !state.activeColors.has(p.color)) return false;
+  if (state.activeColors.size && !state.activeColors.has(favoriteColor(p))) return false;
   if (state.activeTags.size) {
     const all = [...(p.c || []), ...(p.g || []), ...(p.a || [])];
     for (const tag of state.activeTags) {
@@ -111,8 +131,48 @@ function presetMatchesFilters(p) {
   return true;
 }
 
+// Sort a filtered preset list according to state.sort.  The random
+// mode uses a seeded shuffle so re-renders are stable until the user
+// clicks Random again.
+function sortPresets(list) {
+  const out = list.slice();
+  switch (state.sort) {
+    case 'name-desc':
+      out.sort((a, b) => b.name.localeCompare(a.name));
+      break;
+    case 'color': {
+      const order = COLORS.reduce((m, c, i) => (m[c] = i, m), {});
+      out.sort((a, b) => {
+        const ai = order[favoriteColor(a)] ?? 99;
+        const bi = order[favoriteColor(b)] ?? 99;
+        return ai - bi || a.name.localeCompare(b.name);
+      });
+      break;
+    }
+    case 'random': {
+      // Seeded shuffle (Mulberry32) so the order is stable per seed
+      let t = state.sortRandomSeed || 1;
+      const rand = () => {
+        t = (t + 0x6D2B79F5) | 0;
+        let r = Math.imul(t ^ (t >>> 15), 1 | t);
+        r = r + Math.imul(r ^ (r >>> 7), 61 | r) ^ r;
+        return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+      };
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      break;
+    }
+    case 'name-asc':
+    default:
+      out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return out;
+}
+
 function filteredPresets() {
-  return LIBRARY_PRESETS.filter(presetMatchesFilters);
+  return sortPresets(LIBRARY_PRESETS.filter(presetMatchesFilters));
 }
 
 // ------------------------------------------------------------
@@ -188,23 +248,163 @@ function renderPresetResults() {
   curatedEl.style.display = '';
   listEl.innerHTML = '';
 
+  // ---- Sort bar ----
+  const sortBar = document.createElement('div');
+  sortBar.className = 'browser-sort-bar';
+  const sortOptions = [
+    { id: 'name-asc',  label: 'Name ↑' },
+    { id: 'name-desc', label: 'Name ↓' },
+    { id: 'color',     label: 'Color'  },
+    { id: 'random',    label: 'Random' },
+  ];
+  sortOptions.forEach(opt => {
+    const b = document.createElement('button');
+    b.className = 'browser-sort-btn' + (state.sort === opt.id ? ' active' : '');
+    b.textContent = opt.label;
+    b.title = 'Sort by ' + opt.label;
+    b.addEventListener('click', () => {
+      if (opt.id === 'random') state.sortRandomSeed = Math.floor(Math.random() * 1e9);
+      state.sort = opt.id;
+      renderPresetResults();
+    });
+    sortBar.appendChild(b);
+  });
+  listEl.appendChild(sortBar);
+
+  // ---- Results ----
   const presets = filteredPresets();
   presets.forEach(p => {
     const d = document.createElement('div');
     d.className = 'preset-item' + (p.name === state.selectedPreset ? ' active' : '');
+    const favCol = favoriteColor(p);
+    const favClass = state.favorites.has(p.name) ? ' preset-color-fav' : '';
     d.innerHTML = `
-      <span class="preset-color" style="background:${p.color}"></span>
+      <span class="preset-color${favClass}" style="background:${favCol}"></span>
       <span class="preset-name">${p.name}</span>
     `;
     d.addEventListener('click', () => {
       state.selectedPreset = p.name;
       renderPresetResults();
+      renderInfoPane();
       const nameEl = document.getElementById('presetName');
       if (nameEl) nameEl.textContent = p.name;
+    });
+    // Right-click → Favorites context menu
+    d.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      openFavoritesMenu(e.clientX, e.clientY, p);
     });
     listEl.appendChild(d);
   });
   updateResultsCount(presets.length, 'Presets');
+  renderInfoPane();
+}
+
+// ------------------------------------------------------------
+// FAVORITES CONTEXT MENU
+// ------------------------------------------------------------
+
+let _favMenuEl = null;
+function closeFavoritesMenu() {
+  if (_favMenuEl) _favMenuEl.remove();
+  _favMenuEl = null;
+  document.removeEventListener('click', closeFavoritesMenu);
+  document.removeEventListener('contextmenu', closeFavoritesMenu);
+  document.removeEventListener('keydown', _favKeyHandler);
+}
+function _favKeyHandler(e) { if (e.key === 'Escape') closeFavoritesMenu(); }
+
+function openFavoritesMenu(x, y, preset) {
+  closeFavoritesMenu();
+  const menu = document.createElement('div');
+  menu.className = 'fav-menu';
+  menu.innerHTML = '<div class="fav-menu-title">Assign Favorite</div>';
+
+  const swatches = document.createElement('div');
+  swatches.className = 'fav-menu-swatches';
+  COLORS.forEach(c => {
+    const s = document.createElement('button');
+    s.className = 'fav-menu-swatch';
+    if (favoriteColor(preset) === c) s.classList.add('active');
+    s.style.background = c;
+    s.title = 'Set favorite color';
+    s.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      state.favorites.set(preset.name, c);
+      closeFavoritesMenu();
+      renderPresetResults();
+    });
+    swatches.appendChild(s);
+  });
+  menu.appendChild(swatches);
+
+  const clear = document.createElement('button');
+  clear.className = 'fav-menu-clear';
+  clear.textContent = state.favorites.has(preset.name) ? 'Clear favorite' : 'No favorite set';
+  clear.disabled = !state.favorites.has(preset.name);
+  clear.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    state.favorites.delete(preset.name);
+    closeFavoritesMenu();
+    renderPresetResults();
+  });
+  menu.appendChild(clear);
+
+  // Clamp to viewport
+  document.body.appendChild(menu);
+  const rect = menu.getBoundingClientRect();
+  const px = Math.min(x, window.innerWidth - rect.width - 8);
+  const py = Math.min(y, window.innerHeight - rect.height - 8);
+  menu.style.left = px + 'px';
+  menu.style.top  = py + 'px';
+
+  _favMenuEl = menu;
+  // Dismiss on any outside interaction (next tick to avoid the current event)
+  setTimeout(() => {
+    document.addEventListener('click', closeFavoritesMenu);
+    document.addEventListener('contextmenu', closeFavoritesMenu);
+    document.addEventListener('keydown', _favKeyHandler);
+  });
+  menu.addEventListener('click', (ev) => ev.stopPropagation());
+  menu.addEventListener('contextmenu', (ev) => ev.stopPropagation());
+}
+
+// ------------------------------------------------------------
+// INFO PANE
+// ------------------------------------------------------------
+
+function renderInfoPane() {
+  const pane = document.getElementById('browserInfoPane');
+  if (!pane) return;
+  pane.classList.toggle('open', state.infoOpen);
+  if (!state.infoOpen) return;
+
+  const p = LIBRARY_PRESETS.find(x => x.name === state.selectedPreset);
+  const body = pane.querySelector('.browser-info-body');
+  if (!body) return;
+  if (!p) {
+    body.innerHTML = '<div class="browser-info-empty">Select a preset to see its tags.</div>';
+    return;
+  }
+  const tagRow = (label, tags) => {
+    if (!tags || !tags.length) return '';
+    const pills = tags.map(t => `<span class="info-tag-pill">${t}</span>`).join('');
+    return `<div class="info-row"><div class="info-label">${label}</div><div class="info-pills">${pills}</div></div>`;
+  };
+  const favCol = favoriteColor(p);
+  body.innerHTML = `
+    <div class="info-header">
+      <span class="preset-color" style="background:${favCol}"></span>
+      <strong>${p.name}</strong>
+    </div>
+    ${tagRow('Characters', p.c)}
+    ${tagRow('Genres',     p.g)}
+    ${tagRow('Amplifiers', p.a)}
+    <div class="info-row">
+      <div class="info-label">Favorite</div>
+      <div class="info-pills">${state.favorites.has(p.name) ? 'User override' : 'Library default'}</div>
+    </div>
+  `;
 }
 
 function renderComponentResults() {
@@ -295,6 +495,16 @@ export function initBrowser() {
     searchInput.addEventListener('input', (e) => {
       state.search = e.target.value;
       renderResults();
+    });
+  }
+
+  // Info pane toggle
+  const infoBtn = document.getElementById('browserInfoBtn');
+  if (infoBtn) {
+    infoBtn.addEventListener('click', () => {
+      state.infoOpen = !state.infoOpen;
+      infoBtn.classList.toggle('active', state.infoOpen);
+      renderInfoPane();
     });
   }
 

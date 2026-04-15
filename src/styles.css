@@ -724,13 +724,175 @@
     text-transform: uppercase;
   }
 
+  /* Sort bar at the top of the results list */
+  .browser-sort-bar {
+    display: flex;
+    gap: 4px;
+    padding: 6px 10px 8px;
+    border-bottom: 1px solid var(--bg-2);
+    background: var(--bg-1);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .browser-sort-btn {
+    padding: 2px 8px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--text-mute);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .browser-sort-btn:hover { color: var(--text); background: var(--bg-3); }
+  .browser-sort-btn.active {
+    color: var(--accent);
+    background: var(--bg-3);
+    border-color: var(--accent);
+  }
+
+  /* Favorite dot — ringed when user has assigned an override */
+  .preset-color-fav {
+    box-shadow: 0 0 0 1.5px var(--bg-1), 0 0 0 2.5px currentColor;
+  }
+
+  /* Favorites context menu */
+  .fav-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    padding: 8px;
+    min-width: 140px;
+    font-size: 10px;
+  }
+  .fav-menu-title {
+    font-size: 9px;
+    letter-spacing: 0.6px;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .fav-menu-swatches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+  .fav-menu-swatch {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.1s ease;
+  }
+  .fav-menu-swatch:hover { transform: scale(1.15); }
+  .fav-menu-swatch.active {
+    box-shadow: 0 0 0 2px var(--bg-1), 0 0 0 3px var(--accent);
+  }
+  .fav-menu-clear {
+    width: 100%;
+    padding: 5px 6px;
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .fav-menu-clear:hover:not(:disabled) { color: var(--text); background: var(--bg-3); }
+  .fav-menu-clear:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Info pane */
+  .browser-info-pane {
+    border-top: 1px solid var(--border);
+    background: var(--bg-0);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.18s ease;
+  }
+  .browser-info-pane.open {
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .browser-info-header {
+    padding: 6px 12px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: #6aa3ff;
+    border-bottom: 1px solid var(--bg-2);
+  }
+  .browser-info-body {
+    padding: 8px 12px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .browser-info-empty { color: var(--text-mute); font-style: italic; }
+  .info-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 4px 0;
+  }
+  .info-label {
+    width: 68px;
+    flex-shrink: 0;
+    color: var(--text-mute);
+    font-size: 9px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    line-height: 1.6;
+  }
+  .info-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    flex: 1;
+  }
+  .info-tag-pill {
+    padding: 1px 6px;
+    font-size: 9px;
+    color: var(--text);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
   .browser-footer {
     padding: 6px 12px;
     border-top: 1px solid var(--border);
     font-size: 9px;
     color: var(--text-mute);
-    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
+  .browser-info-btn {
+    width: 18px; height: 18px;
+    display: grid; place-items: center;
+    color: var(--text-mute);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .browser-info-btn svg { width: 13px; height: 13px; }
+  .browser-info-btn:hover { color: var(--text); }
+  .browser-info-btn.active { color: var(--accent); }
 
   /* ============ RACK (CENTER) ============ */
   .rack-wrap {
