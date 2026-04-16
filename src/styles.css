@@ -627,6 +627,94 @@
     border-color: var(--text);
     font-weight: 600;
   }
+  .browser-tag-pill.empty { opacity: 0.35; }
+  .browser-tag-pill.empty:hover { opacity: 0.55; }
+  .browser-tag-pill-count {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 4px;
+    min-width: 12px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-mute);
+    background: rgba(255,255,255,0.06);
+    border-radius: 6px;
+  }
+  .browser-tag-pill.active .browser-tag-pill-count {
+    color: var(--bg-0);
+    background: rgba(0,0,0,0.18);
+  }
+  .browser-cat-count-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--bg-0);
+    background: var(--accent, #6aa3ff);
+    border-radius: 8px;
+    line-height: 1.1;
+  }
+  .browser-active-filters {
+    display: none;
+    padding: 6px 8px;
+    gap: 6px;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-1);
+  }
+  .browser-active-filters.open { display: flex; }
+  .active-filters-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+  }
+  .active-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px 2px 8px;
+    font-size: 10px;
+    color: var(--bg-0);
+    background: var(--text);
+    border: 1px solid var(--text);
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+  }
+  .active-filter-chip.color { padding: 2px 6px 2px 4px; }
+  .active-filter-chip-swatch {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.25);
+    display: inline-block;
+  }
+  .active-filter-chip-x {
+    opacity: 0.65;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .active-filter-chip:hover .active-filter-chip-x { opacity: 1; }
+  .browser-filters-reset {
+    flex-shrink: 0;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .browser-filters-reset:hover {
+    color: var(--text);
+    background: var(--bg-2);
+    border-color: var(--text-dim);
+  }
 
   /* Curated header */
   .browser-curated {
@@ -785,32 +873,49 @@
 
   /* Sort bar at the top of the results list */
   .browser-sort-bar {
-    display: flex;
-    gap: 4px;
-    padding: 6px 10px 8px;
-    border-bottom: 1px solid var(--bg-2);
-    background: var(--bg-1);
     position: sticky;
     top: 0;
     z-index: 2;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--bg-2);
   }
-  .browser-sort-btn {
-    padding: 2px 8px;
-    font-size: 9px;
+  .browser-sort-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.4px;
-    color: var(--text-mute);
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    color: var(--text);
+    background: var(--bg-1);
+    border: none;
     cursor: pointer;
     font-family: inherit;
   }
-  .browser-sort-btn:hover { color: var(--text); background: var(--bg-3); }
-  .browser-sort-btn.active {
-    color: var(--accent);
-    background: var(--bg-3);
-    border-color: var(--accent);
+  .browser-sort-head:hover { background: var(--bg-2); }
+  .browser-sort-icon { width: 14px; height: 14px; opacity: 0.5; }
+  .browser-sort-dropdown {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-1);
+    border-top: 1px solid var(--bg-2);
+  }
+  .browser-sort-option {
+    padding: 7px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .browser-sort-option:hover { background: var(--bg-2); color: var(--text); }
+  .browser-sort-option.active {
+    color: var(--text);
+    font-weight: 700;
+    background: var(--bg-2);
   }
 
   /* Favorite dot — ringed when user has assigned an override */
