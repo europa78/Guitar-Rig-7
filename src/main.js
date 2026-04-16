@@ -32,11 +32,30 @@ import { BassPro } from './components/bass-pro.js';
 import { ControlRoomPro } from './components/control-room-pro.js';
 import { StereoTune } from './components/stereo-tune.js';
 
-// Register built-in components
-registerComponent('fastcomp',    FastComp,       'FAST COMP');
-registerComponent('basspro',     BassPro,        'BASS PRO');
-registerComponent('controlroom', ControlRoomPro, 'CONTROL ROOM PRO');
-registerComponent('stereotune',  StereoTune,     'STEREO TUNE');
+// Register built-in components.  The metadata drives the Browser's
+// Components mode: `category` → flat Category Filter pill bar,
+// `tileStyle` → branded Component Tile look, `presets` → dedicated
+// preset list when "Show Component presets" is toggled on.
+registerComponent('fastcomp', FastComp, 'FAST COMP', {
+  category: 'Dynamics',
+  tileStyle: { bg: '#0c0c0e', color: '#ffb020', font: '"Arial Black","Impact",sans-serif', letter: '2px' },
+  presets: ['Default', 'Fast Attack', 'Vocal Glue', 'Drum Smash', 'Parallel Bus'],
+});
+registerComponent('basspro', BassPro, 'BASS PRO', {
+  category: 'Amplifiers',
+  tileStyle: { bg: '#3a0a0a', color: '#f8e6c4', font: 'Georgia,serif', italic: true },
+  presets: ['Default', 'Warm Tube', 'Slap Funk', 'Overdrive'],
+});
+registerComponent('controlroom', ControlRoomPro, 'CONTROL ROOM PRO', {
+  category: 'Cabinets',
+  tileStyle: { bg: '#2a1a0e', color: '#e8d8b0', font: 'Georgia,serif', italic: true },
+  presets: ['Default', '4x12 Stack', '2x12 Combo', '1x12 Open Back'],
+});
+registerComponent('stereotune', StereoTune, 'STEREO TUNE', {
+  category: 'Tools',
+  tileStyle: { bg: '#e8e8ea', color: '#0a0a0c', font: '"Arial Black","Impact",sans-serif', letter: '1.5px' },
+  presets: ['Default', 'Chromatic', 'Strobe'],
+});
 
 // ---- Clipboard (cut/copy/paste) ----
 let componentClipboard = null;

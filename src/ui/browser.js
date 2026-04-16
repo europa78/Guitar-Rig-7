@@ -103,7 +103,19 @@ const state = {
   sortRandomSeed: 0,       // bumped each time Random is re-clicked
   // Info pane open/closed.
   infoOpen: false,
+  // Components mode: active Category Filter tags (flat pill bar).
+  compCategoryFilter: new Set(),
+  // "Show Component presets" toggle — when true, clicking a tile
+  // selects it and lists its dedicated presets below the grid.
+  showCompPresets: false,
 };
+
+// Flat list of Component categories per the Guitar Rig 7 manual.
+export const COMPONENT_CATEGORIES = [
+  'Amplifiers', 'Cabinets', 'Delay & Echo', 'Distortion',
+  'Dynamics', 'EQ', 'Filters', 'Legacy', 'Modifier',
+  'Modulation', 'Pitch', 'Reverb', 'Special FX', 'Tools',
+];
 
 // Returns the effective favorite color for a preset: an explicit
 // override from the favorites map if present, otherwise the preset's
@@ -407,43 +419,122 @@ function renderInfoPane() {
   `;
 }
 
+function componentMatchesFilters(id, reg) {
+  if (state.search) {
+    if (!reg.name.toLowerCase().includes(state.search.toLowerCase())) return false;
+  }
+  if (state.compCategoryFilter.size) {
+    if (!state.compCategoryFilter.has(reg.category)) return false;
+  }
+  return true;
+}
+
+// Turn a tileStyle object into inline CSS for a Component tile.
+function tileInlineStyle(ts) {
+  if (!ts) return '';
+  const parts = [];
+  if (ts.bg)     parts.push(`background:${ts.bg}`);
+  if (ts.color)  parts.push(`color:${ts.color}`);
+  if (ts.font)   parts.push(`font-family:${ts.font}`);
+  if (ts.letter) parts.push(`letter-spacing:${ts.letter}`);
+  if (ts.italic) parts.push('font-style:italic');
+  return parts.join(';');
+}
+
+function addComponentById(id) {
+  const reg = COMPONENT_REGISTRY[id];
+  if (!reg) return;
+  const Cls = reg.cls();
+  const inst = new Cls();
+  engine.addComponent(inst);
+  renderRack();
+  updateSignalFlow();
+  selectComponent(inst);
+}
+
 function renderComponentResults() {
   const listEl = document.getElementById('presetList');
   const curatedEl = document.getElementById('browserCurated');
   curatedEl.style.display = 'none';
   listEl.innerHTML = '';
 
-  const entries = Object.entries(COMPONENT_REGISTRY);
-  const filtered = entries.filter(([id, reg]) => {
-    if (state.search) return reg.name.toLowerCase().includes(state.search.toLowerCase());
-    return true;
+  // ---- (2) Category Filter — flat pill bar ----
+  const catBar = document.createElement('div');
+  catBar.className = 'browser-comp-catbar';
+  COMPONENT_CATEGORIES.forEach(cat => {
+    const b = document.createElement('button');
+    b.className = 'browser-tag-pill comp-cat-pill'
+      + (state.compCategoryFilter.has(cat) ? ' active' : '');
+    b.textContent = cat;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.compCategoryFilter.has(cat)) state.compCategoryFilter.delete(cat);
+      else state.compCategoryFilter.add(cat);
+      renderComponentResults();
+    });
+    catBar.appendChild(b);
   });
+  listEl.appendChild(catBar);
 
-  // Tile grid
+  // ---- (3) Component Tiles — branded grid ----
+  const filtered = Object.entries(COMPONENT_REGISTRY)
+    .filter(([id, reg]) => componentMatchesFilters(id, reg));
+
   const grid = document.createElement('div');
   grid.className = 'browser-comp-grid';
   filtered.forEach(([id, reg]) => {
     const tile = document.createElement('button');
     tile.className = 'browser-comp-tile' + (state.selectedComponentId === id ? ' active' : '');
-    tile.innerHTML = `
-      <div class="browser-comp-icon">⊞</div>
-      <div class="browser-comp-name">${reg.name}</div>
-    `;
-    tile.title = 'Click to add to the rack';
+    const inline = tileInlineStyle(reg.tileStyle);
+    if (inline) tile.setAttribute('style', inline);
+    tile.innerHTML = `<div class="browser-comp-name">${reg.name}</div>`;
+    tile.title = state.showCompPresets
+      ? 'Click to view Component presets'
+      : 'Click to add to the rack';
     tile.addEventListener('click', () => {
       state.selectedComponentId = id;
-      const Cls = reg.cls();
-      const inst = new Cls();
-      engine.addComponent(inst);
-      renderRack();
-      updateSignalFlow();
-      selectComponent(inst);
-      renderComponentResults();
-      toast('Added: ' + reg.name);
+      if (state.showCompPresets) {
+        // In Show Component presets mode, a click only selects;
+        // the preset list below handles adding to the rack.
+        renderComponentResults();
+      } else {
+        addComponentById(id);
+        renderComponentResults();
+        toast('Added: ' + reg.name);
+      }
     });
     grid.appendChild(tile);
   });
   listEl.appendChild(grid);
+
+  // ---- (4) Show Component presets — dedicated preset list ----
+  if (state.showCompPresets) {
+    const selId = state.selectedComponentId;
+    const reg = selId ? COMPONENT_REGISTRY[selId] : null;
+    const section = document.createElement('div');
+    section.className = 'browser-comp-presets';
+    if (!reg) {
+      section.innerHTML = '<div class="browser-comp-presets-empty">Select a Component tile to see its presets.</div>';
+    } else {
+      const header = document.createElement('div');
+      header.className = 'browser-comp-presets-header';
+      header.innerHTML = `<span>${reg.name} PRESETS</span><span class="browser-comp-presets-count">${reg.presets.length}</span>`;
+      section.appendChild(header);
+      reg.presets.forEach(pname => {
+        const row = document.createElement('div');
+        row.className = 'browser-comp-preset-item';
+        row.innerHTML = `<span class="preset-color" style="background:${reg.tileStyle && reg.tileStyle.color || '#6aa3ff'}"></span><span class="preset-name">${pname}</span>`;
+        row.title = 'Click to add this Component with the selected preset';
+        row.addEventListener('click', () => {
+          addComponentById(selId);
+          toast(`Added: ${reg.name} — ${pname}`);
+        });
+        section.appendChild(row);
+      });
+    }
+    listEl.appendChild(section);
+  }
+
   updateResultsCount(filtered.length, 'Components');
 }
 
@@ -458,11 +549,20 @@ function renderModeTabs() {
   });
   const userBtn = document.getElementById('browserUserBtn');
   if (userBtn) userBtn.classList.toggle('active', state.userContent);
-  // Hide category filters in Components mode (tiles don't use them)
+  // Preset-side chrome is hidden in Components mode (tiles don't use it)
   const cats = document.getElementById('browserCategories');
   const colors = document.getElementById('colorFilters');
   if (cats)  cats.style.display  = state.mode === 'presets' ? '' : 'none';
   if (colors) colors.style.display = state.mode === 'presets' ? '' : 'none';
+  // Mode-specific footer buttons: Info pane is Presets-only, Show
+  // Component presets is Components-only.
+  const infoBtn = document.getElementById('browserInfoBtn');
+  const showBtn = document.getElementById('browserShowCompPresetsBtn');
+  if (infoBtn) infoBtn.style.display = state.mode === 'presets' ? '' : 'none';
+  if (showBtn) {
+    showBtn.style.display = state.mode === 'components' ? '' : 'none';
+    showBtn.classList.toggle('active', state.showCompPresets);
+  }
 }
 
 // ------------------------------------------------------------
@@ -505,6 +605,17 @@ export function initBrowser() {
       state.infoOpen = !state.infoOpen;
       infoBtn.classList.toggle('active', state.infoOpen);
       renderInfoPane();
+    });
+  }
+
+  // Show Component presets toggle
+  const showPresetsBtn = document.getElementById('browserShowCompPresetsBtn');
+  if (showPresetsBtn) {
+    showPresetsBtn.addEventListener('click', () => {
+      state.showCompPresets = !state.showCompPresets;
+      showPresetsBtn.classList.toggle('active', state.showCompPresets);
+      renderModeTabs();
+      renderResults();
     });
   }
 

@@ -12,8 +12,14 @@ import { renderRack, updateSignalFlow } from '../ui/rack.js';
 
 export const COMPONENT_REGISTRY = {};
 
-export function registerComponent(id, cls, name) {
-  COMPONENT_REGISTRY[id] = { cls: () => cls, name };
+export function registerComponent(id, cls, name, meta = {}) {
+  COMPONENT_REGISTRY[id] = {
+    cls: () => cls,
+    name,
+    category: meta.category || 'Tools',
+    tileStyle: meta.tileStyle || null,
+    presets: meta.presets || [],
+  };
 }
 
 export function serializeComponent(c) {

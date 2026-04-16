@@ -681,47 +681,106 @@
   .preset-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* Components grid */
+  /* Components — flat Category Filter pill bar */
+  .browser-comp-catbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--bg-2);
+    background: var(--bg-1);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .comp-cat-pill {
+    font-size: 9px;
+    padding: 3px 7px;
+  }
+
   .browser-comp-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px;
+    gap: 6px;
+    padding: 8px;
   }
   .browser-comp-tile {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    min-height: 72px;
-    padding: 10px 6px;
+    min-height: 54px;
+    padding: 8px 6px;
     background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-dim);
+    border: 2px solid transparent;
+    border-radius: 3px;
+    color: var(--text);
     cursor: pointer;
     font-family: inherit;
-    transition: background 0.1s ease, color 0.1s ease, transform 0.1s ease;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    overflow: hidden;
   }
   .browser-comp-tile:hover {
-    background: var(--bg-3);
-    color: var(--text);
     transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   }
   .browser-comp-tile.active {
-    color: var(--accent);
     border-color: var(--accent);
-  }
-  .browser-comp-icon {
-    font-size: 22px;
-    color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
   }
   .browser-comp-name {
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-size: 13px;
+    font-weight: 900;
     text-align: center;
     text-transform: uppercase;
+    line-height: 1.1;
+    color: inherit;
+  }
+
+  /* Components — Show Component presets list */
+  .browser-comp-presets {
+    border-top: 1px solid var(--border);
+    padding: 6px 0 10px;
+  }
+  .browser-comp-presets-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: #6aa3ff;
+    text-transform: uppercase;
+  }
+  .browser-comp-presets-count {
+    padding: 1px 6px;
+    font-size: 9px;
+    color: var(--text-mute);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .browser-comp-presets-empty {
+    padding: 12px;
+    color: var(--text-mute);
+    font-size: 10px;
+    font-style: italic;
+    text-align: center;
+  }
+  .browser-comp-preset-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .browser-comp-preset-item:hover {
+    background: var(--bg-2);
+    color: var(--text);
+    border-left-color: var(--accent);
   }
 
   /* Sort bar at the top of the results list */
