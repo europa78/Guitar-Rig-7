@@ -75,13 +75,14 @@ export function restoreRack(snapshot) {
 }
 
 // ---- Undo / Redo ------------------------------------------------
-export const history = { stack: [], pointer: -1 };
+export const history = { stack: [], pointer: -1, onDirty: null };
 
 export function pushHistory() {
   history.stack = history.stack.slice(0, history.pointer + 1);
   history.stack.push(JSON.stringify(serializeRack()));
   if (history.stack.length > 50) history.stack.shift();
   history.pointer = history.stack.length - 1;
+  if (history.onDirty) history.onDirty();
 }
 
 export function undo() {

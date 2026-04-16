@@ -14,7 +14,8 @@ import { engine, selected } from './app-state.js';
 import { toast } from './ui/toast.js';
 import { renderRack, updateSignalFlow, selectComponent, removeComponent } from './ui/rack.js';
 import { updateInfoPane } from './ui/info-pane.js';
-import { initBrowser } from './ui/browser.js';
+import { initBrowser, prevPreset, nextPreset, shufflePreset,
+         savePreset, openSaveNewPresetDialog, markDirty } from './ui/browser.js';
 
 import {
   registerComponent,
@@ -23,6 +24,7 @@ import {
   deserializeComponent,
   restoreRack,
   pushHistory,
+  history,
   undo,
   redo,
 } from './components/registry.js';
@@ -176,10 +178,14 @@ async function handleMenuAction(action) {
       break;
     }
     case 'save-preset':
+      savePreset();
+      break;
     case 'save-preset-as':
+      openSaveNewPresetDialog();
+      break;
     case 'export-preset': {
       const data = {
-        name: document.getElementById('presetName').textContent,
+        name: document.getElementById('presetName').textContent.replace(/ \*$/, ''),
         version: 1,
         components: serializeRack(),
       };
@@ -229,6 +235,7 @@ function updatePrefsDialog() {
 // ============================================================
 async function boot() {
   initBrowser();
+  history.onDirty = markDirty;
   await engine.init();
   engine.addComponent(new FastComp());
   engine.addComponent(new BassPro());
@@ -531,9 +538,12 @@ async function boot() {
   });
   document.getElementById('stopBtn').addEventListener('click', () => engine.stopFile());
 
-  // Preset nav (cosmetic stubs)
-  document.getElementById('prevPreset').addEventListener('click', () => toast('Previous preset'));
-  document.getElementById('nextPreset').addEventListener('click', () => toast('Next preset'));
+  // Preset toolbar
+  document.getElementById('prevPreset').addEventListener('click', prevPreset);
+  document.getElementById('nextPreset').addEventListener('click', nextPreset);
+  document.getElementById('presetShuffleBtn').addEventListener('click', shufflePreset);
+  document.getElementById('presetSaveBtn').addEventListener('click', savePreset);
+  document.getElementById('presetSaveNewBtn').addEventListener('click', openSaveNewPresetDialog);
 
   // Master mute
   const sfMuteBtn = document.getElementById('sfMuteBtn');
@@ -657,7 +667,8 @@ async function boot() {
     else if (ctrl && e.key === 'a') { e.preventDefault(); handleMenuAction('select-all'); }
     else if (ctrl && e.key === 'n') { e.preventDefault(); handleMenuAction('new-preset'); }
     else if (ctrl && e.key === 'o') { e.preventDefault(); handleMenuAction('open-preset'); }
-    else if (ctrl && e.key === 's') { e.preventDefault(); handleMenuAction('save-preset'); }
+    else if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); openSaveNewPresetDialog(); }
+    else if (ctrl && e.key === 's') { e.preventDefault(); savePreset(); }
     else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (selected) { e.preventDefault(); handleMenuAction('delete'); }
     }

@@ -109,6 +109,10 @@ const state = {
   // "Show Component presets" toggle — when true, clicking a tile
   // selects it and lists its dedicated presets below the grid.
   showCompPresets: false,
+  // User presets saved via the toolbar.
+  userPresets: [],
+  // Dirty flag — set when the rack is modified after loading a preset.
+  dirty: false,
 };
 
 // Flat list of Component categories per the Guitar Rig 7 manual.
@@ -130,7 +134,8 @@ function favoriteColor(p) {
 // ------------------------------------------------------------
 
 function presetMatchesFilters(p, opts = {}) {
-  if (state.userContent) return false; // no user presets in the demo library
+  if (state.userContent && !p.isUser) return false;
+  if (!state.userContent && p.isUser) return false;
   if (state.search) {
     if (!p.name.toLowerCase().includes(state.search.toLowerCase())) return false;
   }
@@ -151,7 +156,7 @@ function presetMatchesFilters(p, opts = {}) {
 function tagMatchCount(tag) {
   const simulated = new Set(state.activeTags);
   simulated.add(tag);
-  return LIBRARY_PRESETS.filter(p => presetMatchesFilters(p, { tags: simulated })).length;
+  return allPresets().filter(p => presetMatchesFilters(p, { tags: simulated })).length;
 }
 
 function clearAllFilters() {
@@ -221,8 +226,12 @@ function sortPresets(list) {
   return out;
 }
 
+function allPresets() {
+  return [...LIBRARY_PRESETS, ...state.userPresets];
+}
+
 function filteredPresets() {
-  return sortPresets(LIBRARY_PRESETS.filter(presetMatchesFilters));
+  return sortPresets(allPresets().filter(presetMatchesFilters));
 }
 
 // ------------------------------------------------------------
@@ -398,16 +407,20 @@ function renderPresetResults() {
     d.className = 'preset-item' + (p.name === state.selectedPreset ? ' active' : '');
     const favCol = favoriteColor(p);
     const favClass = state.favorites.has(p.name) ? ' preset-color-fav' : '';
+    const userBadge = p.isUser ? '<span class="preset-user-badge">USER</span>' : '';
     d.innerHTML = `
       <span class="preset-color${favClass}" style="background:${favCol}"></span>
       <span class="preset-name">${p.name}</span>
+      ${userBadge}
     `;
     d.addEventListener('click', () => {
       state.selectedPreset = p.name;
       renderPresetResults();
       renderInfoPane();
-      const nameEl = document.getElementById('presetName');
-      if (nameEl) nameEl.textContent = p.name;
+      updatePresetDisplay();
+    });
+    d.addEventListener('dblclick', () => {
+      loadPreset(p.name);
     });
     // Right-click → Favorites context menu
     d.addEventListener('contextmenu', (e) => {
@@ -674,6 +687,134 @@ function renderModeTabs() {
 }
 
 // ------------------------------------------------------------
+// PRESET LOADING + NAVIGATION
+// ------------------------------------------------------------
+
+function updatePresetDisplay() {
+  const nameEl = document.getElementById('presetName');
+  if (nameEl) {
+    nameEl.textContent = state.dirty
+      ? state.selectedPreset + ' *'
+      : state.selectedPreset;
+  }
+}
+
+export function loadPreset(name) {
+  state.selectedPreset = name;
+  state.dirty = false;
+  updatePresetDisplay();
+  renderPresetResults();
+  renderInfoPane();
+  toast('Loaded: ' + name);
+}
+
+export function prevPreset() {
+  const list = filteredPresets();
+  if (!list.length) return;
+  const idx = list.findIndex(p => p.name === state.selectedPreset);
+  const prev = idx > 0 ? idx - 1 : list.length - 1;
+  loadPreset(list[prev].name);
+}
+
+export function nextPreset() {
+  const list = filteredPresets();
+  if (!list.length) return;
+  const idx = list.findIndex(p => p.name === state.selectedPreset);
+  const next = idx < list.length - 1 ? idx + 1 : 0;
+  loadPreset(list[next].name);
+}
+
+export function shufflePreset() {
+  const list = filteredPresets();
+  if (list.length <= 1) return;
+  let pick;
+  do { pick = list[Math.floor(Math.random() * list.length)]; }
+  while (pick.name === state.selectedPreset && list.length > 1);
+  loadPreset(pick.name);
+}
+
+export function markDirty() {
+  if (!state.dirty) {
+    state.dirty = true;
+    updatePresetDisplay();
+  }
+}
+
+// ------------------------------------------------------------
+// USER PRESETS
+// ------------------------------------------------------------
+
+export function openSaveNewPresetDialog() {
+  const dlg = document.getElementById('savePresetDialog');
+  if (!dlg) return;
+  const input = dlg.querySelector('#savePresetNameInput');
+  if (input) input.value = 'My User Preset';
+  dlg.classList.add('open');
+  if (input) input.focus();
+}
+
+export function confirmSaveNewPreset() {
+  const dlg = document.getElementById('savePresetDialog');
+  const input = dlg ? dlg.querySelector('#savePresetNameInput') : null;
+  const name = (input ? input.value : '').trim();
+  if (!name) { toast('Enter a name'); return; }
+  const existing = state.userPresets.findIndex(p => p.name === name);
+  const preset = { name, color: '#88dd22', c: [], g: [], a: [], isUser: true };
+  if (existing >= 0) state.userPresets[existing] = preset;
+  else state.userPresets.push(preset);
+  state.selectedPreset = name;
+  state.dirty = false;
+  if (dlg) dlg.classList.remove('open');
+  updatePresetDisplay();
+  renderResults();
+  toast('Saved: ' + name);
+}
+
+export function savePreset() {
+  const cur = state.userPresets.find(p => p.name === state.selectedPreset);
+  if (!cur) {
+    openSaveNewPresetDialog();
+    return;
+  }
+  state.dirty = false;
+  updatePresetDisplay();
+  toast('Saved: ' + cur.name);
+}
+
+// Keyboard nav for the Results list.
+function handleResultsKeydown(e) {
+  if (state.mode !== 'presets') return;
+  const list = filteredPresets();
+  if (!list.length) return;
+  const idx = list.findIndex(p => p.name === state.selectedPreset);
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = idx < list.length - 1 ? idx + 1 : 0;
+    state.selectedPreset = list[next].name;
+    updatePresetDisplay();
+    renderPresetResults();
+    scrollSelectedIntoView();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = idx > 0 ? idx - 1 : list.length - 1;
+    state.selectedPreset = list[prev].name;
+    updatePresetDisplay();
+    renderPresetResults();
+    scrollSelectedIntoView();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    loadPreset(state.selectedPreset);
+  }
+}
+
+function scrollSelectedIntoView() {
+  const listEl = document.getElementById('presetList');
+  if (!listEl) return;
+  const active = listEl.querySelector('.preset-item.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+// ------------------------------------------------------------
 // PUBLIC API
 // ------------------------------------------------------------
 
@@ -727,6 +868,21 @@ export function initBrowser() {
       renderResults();
     });
   }
+
+  // Save New Preset dialog
+  const saveDlg = document.getElementById('savePresetDialog');
+  if (saveDlg) {
+    saveDlg.querySelector('#savePresetOk')?.addEventListener('click', confirmSaveNewPreset);
+    saveDlg.querySelectorAll('[data-close]').forEach(b =>
+      b.addEventListener('click', () => saveDlg.classList.remove('open')));
+    const nameInput = saveDlg.querySelector('#savePresetNameInput');
+    if (nameInput) nameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmSaveNewPreset(); }
+    });
+  }
+
+  // Keyboard navigation for the Results list
+  document.addEventListener('keydown', handleResultsKeydown);
 
   renderModeTabs();
   renderColorFilters();
