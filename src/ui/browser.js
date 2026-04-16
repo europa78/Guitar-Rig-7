@@ -128,19 +128,42 @@ function favoriteColor(p) {
 // MATCHING
 // ------------------------------------------------------------
 
-function presetMatchesFilters(p) {
+function presetMatchesFilters(p, opts = {}) {
   if (state.userContent) return false; // no user presets in the demo library
   if (state.search) {
     if (!p.name.toLowerCase().includes(state.search.toLowerCase())) return false;
   }
   if (state.activeColors.size && !state.activeColors.has(favoriteColor(p))) return false;
-  if (state.activeTags.size) {
+  const tagsOverride = opts.tags || state.activeTags;
+  if (tagsOverride.size) {
     const all = [...(p.c || []), ...(p.g || []), ...(p.a || [])];
-    for (const tag of state.activeTags) {
+    for (const tag of tagsOverride) {
       if (!all.includes(tag)) return false;
     }
   }
   return true;
+}
+
+// Count presets that would match if `tag` were toggled ON alongside the
+// current search + color + other-tag filters. When the tag is already
+// active, the count is the current number of matches.
+function tagMatchCount(tag) {
+  const simulated = new Set(state.activeTags);
+  simulated.add(tag);
+  return LIBRARY_PRESETS.filter(p => presetMatchesFilters(p, { tags: simulated })).length;
+}
+
+function clearAllFilters() {
+  state.activeColors.clear();
+  state.activeTags.clear();
+  renderColorFilters();
+  renderActiveFilters();
+  renderCategoryFilters();
+  renderResults();
+}
+
+function hasAnyFilter() {
+  return state.activeColors.size > 0 || state.activeTags.size > 0;
 }
 
 // Sort a filtered preset list according to state.sort.  The random
@@ -203,10 +226,58 @@ function renderColorFilters() {
       if (state.activeColors.has(c)) state.activeColors.delete(c);
       else state.activeColors.add(c);
       renderColorFilters();
+      renderActiveFilters();
+      renderCategoryFilters();
       renderResults();
     });
     el.appendChild(d);
   });
+}
+
+function renderActiveFilters() {
+  const el = document.getElementById('browserActiveFilters');
+  if (!el) return;
+  if (!hasAnyFilter()) { el.innerHTML = ''; el.classList.remove('open'); return; }
+  el.classList.add('open');
+  el.innerHTML = '';
+
+  const chips = document.createElement('div');
+  chips.className = 'active-filters-chips';
+
+  state.activeColors.forEach(c => {
+    const chip = document.createElement('button');
+    chip.className = 'active-filter-chip color';
+    chip.title = 'Remove color filter';
+    chip.innerHTML = `<span class="active-filter-chip-swatch" style="background:${c}"></span><span class="active-filter-chip-x">✕</span>`;
+    chip.addEventListener('click', () => {
+      state.activeColors.delete(c);
+      renderColorFilters();
+      renderActiveFilters();
+      renderResults();
+    });
+    chips.appendChild(chip);
+  });
+  state.activeTags.forEach(tag => {
+    const chip = document.createElement('button');
+    chip.className = 'active-filter-chip';
+    chip.title = 'Remove tag filter';
+    chip.innerHTML = `<span>${tag}</span><span class="active-filter-chip-x">✕</span>`;
+    chip.addEventListener('click', () => {
+      state.activeTags.delete(tag);
+      renderActiveFilters();
+      renderCategoryFilters();
+      renderResults();
+    });
+    chips.appendChild(chip);
+  });
+  el.appendChild(chips);
+
+  const reset = document.createElement('button');
+  reset.className = 'browser-filters-reset';
+  reset.textContent = 'Reset all';
+  reset.title = 'Clear all active filters';
+  reset.addEventListener('click', clearAllFilters);
+  el.appendChild(reset);
 }
 
 function renderCategoryFilters() {
@@ -217,9 +288,11 @@ function renderCategoryFilters() {
     const wrap = document.createElement('div');
     wrap.className = 'browser-cat-wrap' + (open ? ' open' : '');
 
+    const activeInCat = tags.filter(t => state.activeTags.has(t)).length;
     const head = document.createElement('div');
     head.className = 'browser-cat';
-    head.innerHTML = `<span>${cat}</span><span class="browser-cat-chev">⌄</span>`;
+    const badge = activeInCat ? `<span class="browser-cat-count-badge">${activeInCat}</span>` : '';
+    head.innerHTML = `<span>${cat}${badge}</span><span class="browser-cat-chev">⌄</span>`;
     head.addEventListener('click', () => {
       if (state.openCategories.has(cat)) state.openCategories.delete(cat);
       else state.openCategories.add(cat);
@@ -231,13 +304,21 @@ function renderCategoryFilters() {
       const pills = document.createElement('div');
       pills.className = 'browser-cat-pills';
       tags.forEach(tag => {
+        const n = tagMatchCount(tag);
+        const isActive = state.activeTags.has(tag);
         const b = document.createElement('button');
-        b.className = 'browser-tag-pill' + (state.activeTags.has(tag) ? ' active' : '');
-        b.textContent = tag;
+        b.className = 'browser-tag-pill'
+          + (isActive ? ' active' : '')
+          + (!isActive && n === 0 ? ' empty' : '');
+        b.innerHTML = `${tag} <span class="browser-tag-pill-count">${n}</span>`;
+        b.title = isActive
+          ? `Active filter — click to remove`
+          : (n === 0 ? 'No matches with current filters' : `${n} preset${n === 1 ? '' : 's'} match`);
         b.addEventListener('click', (e) => {
           e.stopPropagation();
           if (state.activeTags.has(tag)) state.activeTags.delete(tag);
           else state.activeTags.add(tag);
+          renderActiveFilters();
           renderCategoryFilters();
           renderResults();
         });
@@ -594,6 +675,7 @@ export function initBrowser() {
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       state.search = e.target.value;
+      renderCategoryFilters();
       renderResults();
     });
   }
@@ -621,6 +703,7 @@ export function initBrowser() {
 
   renderModeTabs();
   renderColorFilters();
+  renderActiveFilters();
   renderCategoryFilters();
   renderResults();
 }
