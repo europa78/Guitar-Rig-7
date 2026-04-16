@@ -99,7 +99,8 @@ const state = {
   // Presets without an override fall back to their built-in `color`.
   favorites: new Map(),
   // Results-list sort option.
-  sort: 'name-asc',        // 'name-asc' | 'name-desc' | 'color' | 'random'
+  sort: 'curated',         // 'curated' | 'abc' | 'zyx' | 'color' | 'random'
+  sortOpen: false,          // sort dropdown expanded
   sortRandomSeed: 0,       // bumped each time Random is re-clicked
   // Info pane open/closed.
   infoOpen: false,
@@ -169,10 +170,25 @@ function hasAnyFilter() {
 // Sort a filtered preset list according to state.sort.  The random
 // mode uses a seeded shuffle so re-renders are stable until the user
 // clicks Random again.
+const SORT_OPTIONS = [
+  { id: 'curated', label: 'Curated' },
+  { id: 'abc',     label: 'Abc'     },
+  { id: 'zyx',     label: 'Zyx'     },
+  { id: 'color',   label: 'Color'   },
+  { id: 'random',  label: 'Random'  },
+];
+
+function sortLabel() {
+  return (SORT_OPTIONS.find(o => o.id === state.sort) || SORT_OPTIONS[0]).label;
+}
+
 function sortPresets(list) {
   const out = list.slice();
   switch (state.sort) {
-    case 'name-desc':
+    case 'abc':
+      out.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case 'zyx':
       out.sort((a, b) => b.name.localeCompare(a.name));
       break;
     case 'color': {
@@ -185,7 +201,6 @@ function sortPresets(list) {
       break;
     }
     case 'random': {
-      // Seeded shuffle (Mulberry32) so the order is stable per seed
       let t = state.sortRandomSeed || 1;
       const rand = () => {
         t = (t + 0x6D2B79F5) | 0;
@@ -199,9 +214,9 @@ function sortPresets(list) {
       }
       break;
     }
-    case 'name-asc':
+    case 'curated':
     default:
-      out.sort((a, b) => a.name.localeCompare(b.name));
+      break;
   }
   return out;
 }
@@ -341,27 +356,39 @@ function renderPresetResults() {
   curatedEl.style.display = '';
   listEl.innerHTML = '';
 
-  // ---- Sort bar ----
+  // ---- Sort bar (dropdown) ----
   const sortBar = document.createElement('div');
   sortBar.className = 'browser-sort-bar';
-  const sortOptions = [
-    { id: 'name-asc',  label: 'Name ↑' },
-    { id: 'name-desc', label: 'Name ↓' },
-    { id: 'color',     label: 'Color'  },
-    { id: 'random',    label: 'Random' },
-  ];
-  sortOptions.forEach(opt => {
-    const b = document.createElement('button');
-    b.className = 'browser-sort-btn' + (state.sort === opt.id ? ' active' : '');
-    b.textContent = opt.label;
-    b.title = 'Sort by ' + opt.label;
-    b.addEventListener('click', () => {
-      if (opt.id === 'random') state.sortRandomSeed = Math.floor(Math.random() * 1e9);
-      state.sort = opt.id;
-      renderPresetResults();
-    });
-    sortBar.appendChild(b);
+  const sortHead = document.createElement('button');
+  sortHead.className = 'browser-sort-head';
+  sortHead.innerHTML = `<span class="browser-sort-label">${sortLabel()}</span>` +
+    `<svg class="browser-sort-icon" viewBox="0 0 16 16" fill="currentColor">` +
+    `<rect x="2" y="3" width="12" height="1.5"/><rect x="2" y="7.25" width="12" height="1.5"/>` +
+    `<rect x="2" y="11.5" width="12" height="1.5"/></svg>`;
+  sortHead.addEventListener('click', () => {
+    state.sortOpen = !state.sortOpen;
+    renderPresetResults();
   });
+  sortBar.appendChild(sortHead);
+
+  if (state.sortOpen) {
+    const dropdown = document.createElement('div');
+    dropdown.className = 'browser-sort-dropdown';
+    SORT_OPTIONS.forEach(opt => {
+      const row = document.createElement('button');
+      row.className = 'browser-sort-option' + (state.sort === opt.id ? ' active' : '');
+      row.textContent = opt.label;
+      row.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (opt.id === 'random') state.sortRandomSeed = Math.floor(Math.random() * 1e9);
+        state.sort = opt.id;
+        state.sortOpen = false;
+        renderPresetResults();
+      });
+      dropdown.appendChild(row);
+    });
+    sortBar.appendChild(dropdown);
+  }
   listEl.appendChild(sortBar);
 
   // ---- Results ----
