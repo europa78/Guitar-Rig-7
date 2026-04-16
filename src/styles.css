@@ -1017,10 +1017,13 @@
     transition: max-height 0.18s ease;
   }
   .browser-info-pane.open {
-    max-height: 220px;
+    max-height: 350px;
     overflow-y: auto;
   }
   .browser-info-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 6px 12px;
     font-size: 9px;
     font-weight: 700;
@@ -1028,6 +1031,15 @@
     color: #6aa3ff;
     border-bottom: 1px solid var(--bg-2);
   }
+  .browser-info-close {
+    font-size: 11px;
+    color: var(--text-mute);
+    padding: 2px 5px;
+    cursor: pointer;
+    background: none;
+    border: none;
+  }
+  .browser-info-close:hover { color: var(--red, #ff4444); }
   .browser-info-body {
     padding: 8px 12px;
     font-size: 10px;
@@ -1069,6 +1081,97 @@
     background: var(--bg-2);
     border: 1px solid var(--border);
     border-radius: 8px;
+  }
+  .info-pills-editable .info-tag-pill {
+    cursor: pointer;
+    transition: background 0.1s ease;
+  }
+  .info-pills-editable .info-tag-pill:hover {
+    background: var(--bg-3);
+  }
+  .info-pills-editable .info-tag-pill.active {
+    color: var(--bg-0);
+    background: var(--text);
+    border-color: var(--text);
+    font-weight: 600;
+  }
+  .info-header-editable {
+    position: relative;
+  }
+  .info-editable-name { cursor: text; }
+  .info-pen-btn {
+    font-size: 11px;
+    color: var(--text-mute);
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0;
+    padding: 2px 4px;
+    transition: opacity 0.1s ease;
+  }
+  .info-header-editable:hover .info-pen-btn { opacity: 1; }
+  .info-pen-btn:hover { color: var(--accent, #6aa3ff); }
+  .info-rename-input {
+    flex: 1;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--bg-2);
+    border: 1px solid var(--accent, #6aa3ff);
+    border-radius: 3px;
+    font-family: inherit;
+  }
+  .info-rename-input:focus { outline: none; }
+  .info-tag-section {
+    margin: 6px 0;
+  }
+  .info-tag-section-label {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--text-mute);
+    margin-bottom: 3px;
+  }
+  .info-tag-add-btn {
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-mute);
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .info-tag-add-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .info-tag-add-input {
+    padding: 1px 6px;
+    font-size: 9px;
+    color: var(--text);
+    background: var(--bg-2);
+    border: 1px solid var(--accent, #6aa3ff);
+    border-radius: 8px;
+    font-family: inherit;
+    width: 80px;
+  }
+  .info-tag-add-input:focus { outline: none; }
+  .info-meta-row {
+    align-items: center;
+  }
+  .info-meta-input {
+    flex: 1;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: var(--text);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: inherit;
+  }
+  .info-meta-input:focus {
+    outline: none;
+    border-color: var(--accent, #6aa3ff);
   }
 
   .browser-footer {

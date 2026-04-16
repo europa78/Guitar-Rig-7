@@ -111,6 +111,8 @@ const state = {
   showCompPresets: false,
   // User presets saved via the toolbar.
   userPresets: [],
+  // Custom user-defined filter tags, merged with FILTER_CATEGORIES.
+  customTags: {},  // { categoryName: [tagName, ...] }
   // Dirty flag — set when the rack is modified after loading a preset.
   dirty: false,
 };
@@ -133,6 +135,14 @@ function favoriteColor(p) {
 // MATCHING
 // ------------------------------------------------------------
 
+function allPresetTags(p) {
+  const base = [...(p.c || []), ...(p.g || []), ...(p.a || [])];
+  if (p.filterTags) {
+    for (const tags of Object.values(p.filterTags)) base.push(...tags);
+  }
+  return base;
+}
+
 function presetMatchesFilters(p, opts = {}) {
   if (state.userContent && !p.isUser) return false;
   if (!state.userContent && p.isUser) return false;
@@ -142,7 +152,7 @@ function presetMatchesFilters(p, opts = {}) {
   if (state.activeColors.size && !state.activeColors.has(favoriteColor(p))) return false;
   const tagsOverride = opts.tags || state.activeTags;
   if (tagsOverride.size) {
-    const all = [...(p.c || []), ...(p.g || []), ...(p.a || [])];
+    const all = allPresetTags(p);
     for (const tag of tagsOverride) {
       if (!all.includes(tag)) return false;
     }
@@ -327,9 +337,10 @@ function renderCategoryFilters() {
     if (open) {
       const pills = document.createElement('div');
       pills.className = 'browser-cat-pills';
-      tags.forEach(tag => {
+      mergedCategoryTags(cat).forEach(tag => {
         const n = tagMatchCount(tag);
         const isActive = state.activeTags.has(tag);
+        const isCustom = (state.customTags[cat] || []).includes(tag);
         const b = document.createElement('button');
         b.className = 'browser-tag-pill'
           + (isActive ? ' active' : '')
@@ -346,6 +357,24 @@ function renderCategoryFilters() {
           renderCategoryFilters();
           renderResults();
         });
+        if (isCustom) {
+          b.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            state.customTags[cat] = state.customTags[cat].filter(t => t !== tag);
+            state.activeTags.delete(tag);
+            state.userPresets.forEach(up => {
+              if (up.filterTags && up.filterTags[cat]) {
+                up.filterTags[cat] = up.filterTags[cat].filter(t => t !== tag);
+              }
+            });
+            renderActiveFilters();
+            renderCategoryFilters();
+            renderResults();
+            renderInfoPane();
+            toast('Deleted tag: ' + tag);
+          });
+        }
         pills.appendChild(b);
       });
       wrap.appendChild(pills);
@@ -506,19 +535,34 @@ function openFavoritesMenu(x, y, preset) {
 // INFO PANE
 // ------------------------------------------------------------
 
+function mergedCategoryTags(cat) {
+  const base = FILTER_CATEGORIES[cat] || [];
+  const custom = state.customTags[cat] || [];
+  return [...base, ...custom.filter(t => !base.includes(t))];
+}
+
 function renderInfoPane() {
   const pane = document.getElementById('browserInfoPane');
   if (!pane) return;
   pane.classList.toggle('open', state.infoOpen);
   if (!state.infoOpen) return;
 
-  const p = LIBRARY_PRESETS.find(x => x.name === state.selectedPreset);
+  const p = allPresets().find(x => x.name === state.selectedPreset);
   const body = pane.querySelector('.browser-info-body');
   if (!body) return;
   if (!p) {
     body.innerHTML = '<div class="browser-info-empty">Select a preset to see its tags.</div>';
     return;
   }
+
+  if (p.isUser) {
+    renderUserInfoPane(body, p);
+  } else {
+    renderLibraryInfoPane(body, p);
+  }
+}
+
+function renderLibraryInfoPane(body, p) {
   const tagRow = (label, tags) => {
     if (!tags || !tags.length) return '';
     const pills = tags.map(t => `<span class="info-tag-pill">${t}</span>`).join('');
@@ -538,6 +582,154 @@ function renderInfoPane() {
       <div class="info-pills">${state.favorites.has(p.name) ? 'User override' : 'Library default'}</div>
     </div>
   `;
+}
+
+function renderUserInfoPane(body, p) {
+  body.innerHTML = '';
+
+  // Editable name row
+  const nameRow = document.createElement('div');
+  nameRow.className = 'info-header info-header-editable';
+  const favCol = favoriteColor(p);
+  nameRow.innerHTML = `<span class="preset-color" style="background:${favCol}"></span>`;
+  const nameSpan = document.createElement('strong');
+  nameSpan.className = 'info-editable-name';
+  nameSpan.textContent = p.name;
+  nameSpan.title = 'Double-click to rename';
+  const penBtn = document.createElement('button');
+  penBtn.className = 'info-pen-btn';
+  penBtn.innerHTML = '✎';
+  penBtn.title = 'Rename preset';
+  const startRename = () => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'info-rename-input';
+    input.value = p.name;
+    nameSpan.replaceWith(input);
+    penBtn.style.display = 'none';
+    input.focus();
+    input.select();
+    const finish = () => {
+      const newName = input.value.trim();
+      if (newName && newName !== p.name) {
+        const old = p.name;
+        p.name = newName;
+        if (state.selectedPreset === old) state.selectedPreset = newName;
+        if (state.favorites.has(old)) {
+          state.favorites.set(newName, state.favorites.get(old));
+          state.favorites.delete(old);
+        }
+        p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        updatePresetDisplay();
+        renderResults();
+      }
+      renderInfoPane();
+    };
+    input.addEventListener('blur', finish);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+  };
+  nameSpan.addEventListener('dblclick', startRename);
+  penBtn.addEventListener('click', startRename);
+  nameRow.appendChild(nameSpan);
+  nameRow.appendChild(penBtn);
+  body.appendChild(nameRow);
+
+  // Filter tag categories
+  Object.keys(FILTER_CATEGORIES).forEach(cat => {
+    const section = document.createElement('div');
+    section.className = 'info-tag-section';
+    const label = document.createElement('div');
+    label.className = 'info-tag-section-label';
+    label.textContent = cat.toUpperCase();
+    section.appendChild(label);
+
+    const pills = document.createElement('div');
+    pills.className = 'info-pills info-pills-editable';
+    const assigned = (p.filterTags && p.filterTags[cat]) || [];
+    mergedCategoryTags(cat).forEach(tag => {
+      const pill = document.createElement('button');
+      pill.className = 'info-tag-pill' + (assigned.includes(tag) ? ' active' : '');
+      pill.textContent = tag;
+      pill.addEventListener('click', () => {
+        if (!p.filterTags) p.filterTags = {};
+        if (!p.filterTags[cat]) p.filterTags[cat] = [];
+        const idx = p.filterTags[cat].indexOf(tag);
+        if (idx >= 0) p.filterTags[cat].splice(idx, 1);
+        else p.filterTags[cat].push(tag);
+        p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        renderInfoPane();
+        renderCategoryFilters();
+      });
+      pills.appendChild(pill);
+    });
+
+    // + button for custom tags
+    const addBtn = document.createElement('button');
+    addBtn.className = 'info-tag-add-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add a custom filter tag';
+    addBtn.addEventListener('click', () => {
+      addBtn.style.display = 'none';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'info-tag-add-input';
+      input.placeholder = 'Tag name';
+      pills.appendChild(input);
+      input.focus();
+      const finish = () => {
+        const tagName = input.value.trim();
+        if (tagName) {
+          if (!state.customTags[cat]) state.customTags[cat] = [];
+          if (!state.customTags[cat].includes(tagName) && !FILTER_CATEGORIES[cat].includes(tagName)) {
+            state.customTags[cat].push(tagName);
+          }
+          if (!p.filterTags) p.filterTags = {};
+          if (!p.filterTags[cat]) p.filterTags[cat] = [];
+          if (!p.filterTags[cat].includes(tagName)) p.filterTags[cat].push(tagName);
+          p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          renderCategoryFilters();
+        }
+        renderInfoPane();
+      };
+      input.addEventListener('blur', finish);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+    });
+    pills.appendChild(addBtn);
+    section.appendChild(pills);
+    body.appendChild(section);
+  });
+
+  // Metadata fields
+  const metaFields = [
+    { key: 'vendor',  label: 'Vendor' },
+    { key: 'author',  label: 'Author' },
+    { key: 'comment', label: 'Comment' },
+  ];
+  metaFields.forEach(({ key, label }) => {
+    const row = document.createElement('div');
+    row.className = 'info-row info-meta-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'info-label';
+    lbl.textContent = label;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'info-meta-input';
+    input.value = p[key] || '';
+    input.placeholder = `Enter ${label.toLowerCase()}...`;
+    input.addEventListener('change', () => {
+      p[key] = input.value.trim();
+      p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    });
+    row.appendChild(lbl);
+    row.appendChild(input);
+    body.appendChild(row);
+  });
+
+  // Read-only metadata
+  const modRow = document.createElement('div');
+  modRow.className = 'info-row';
+  modRow.innerHTML = `<div class="info-label">Modified</div><div class="info-pills">${p.modified || '—'}</div>`;
+  body.appendChild(modRow);
 }
 
 function componentMatchesFilters(id, reg) {
@@ -753,21 +945,42 @@ export function openSaveNewPresetDialog() {
   if (input) input.focus();
 }
 
+function makeUserPreset(name) {
+  return {
+    name, color: '#88dd22', c: [], g: [], a: [], isUser: true,
+    filterTags: {},  // { categoryName: [tagName, ...] }
+    comment: '', author: '', vendor: '',
+    modified: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  };
+}
+
 export function confirmSaveNewPreset() {
   const dlg = document.getElementById('savePresetDialog');
   const input = dlg ? dlg.querySelector('#savePresetNameInput') : null;
   const name = (input ? input.value : '').trim();
   if (!name) { toast('Enter a name'); return; }
   const existing = state.userPresets.findIndex(p => p.name === name);
-  const preset = { name, color: '#88dd22', c: [], g: [], a: [], isUser: true };
-  if (existing >= 0) state.userPresets[existing] = preset;
-  else state.userPresets.push(preset);
+  if (existing >= 0) {
+    state.userPresets[existing].modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  } else {
+    state.userPresets.push(makeUserPreset(name));
+  }
   state.selectedPreset = name;
   state.dirty = false;
   if (dlg) dlg.classList.remove('open');
   updatePresetDisplay();
   renderResults();
   toast('Saved: ' + name);
+}
+
+export function importUserPreset(name) {
+  if (!state.userPresets.find(p => p.name === name)) {
+    state.userPresets.push(makeUserPreset(name));
+  }
+  state.selectedPreset = name;
+  state.dirty = false;
+  updatePresetDisplay();
+  renderResults();
 }
 
 export function savePreset() {
@@ -854,6 +1067,14 @@ export function initBrowser() {
     infoBtn.addEventListener('click', () => {
       state.infoOpen = !state.infoOpen;
       infoBtn.classList.toggle('active', state.infoOpen);
+      renderInfoPane();
+    });
+  }
+  const infoClose = document.getElementById('browserInfoClose');
+  if (infoClose) {
+    infoClose.addEventListener('click', () => {
+      state.infoOpen = false;
+      if (infoBtn) infoBtn.classList.remove('active');
       renderInfoPane();
     });
   }

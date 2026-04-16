@@ -15,7 +15,8 @@ import { toast } from './ui/toast.js';
 import { renderRack, updateSignalFlow, selectComponent, removeComponent } from './ui/rack.js';
 import { updateInfoPane } from './ui/info-pane.js';
 import { initBrowser, prevPreset, nextPreset, shufflePreset,
-         savePreset, openSaveNewPresetDialog, markDirty } from './ui/browser.js';
+         savePreset, openSaveNewPresetDialog, markDirty,
+         importUserPreset } from './ui/browser.js';
 
 import {
   registerComponent,
@@ -170,8 +171,9 @@ async function handleMenuAction(action) {
           const data = JSON.parse(text);
           pushHistory();
           restoreRack(data.components || []);
-          document.getElementById('presetName').textContent = data.name || file.name.replace(/\.[^.]+$/, '');
-          toast('Opened: ' + file.name);
+          const pName = data.name || file.name.replace(/\.[^.]+$/, '');
+          importUserPreset(pName);
+          toast('Imported: ' + pName);
         } catch (err) { toast('Invalid preset file'); }
       });
       inp.click();
