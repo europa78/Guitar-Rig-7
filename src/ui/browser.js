@@ -34,6 +34,17 @@ export const COLORS = [
   '#22ddaa', '#2288dd', '#6644ff', '#cc44ff',
 ];
 
+export const COLOR_NAMES = {
+  '#ff4444': 'Orange',
+  '#ff8800': 'Warm Yellow',
+  '#ffdd00': 'Lime',
+  '#88dd22': 'Mint',
+  '#22ddaa': 'Cyan',
+  '#2288dd': 'Plum',
+  '#6644ff': 'Purple',
+  '#cc44ff': 'Fuchsia',
+};
+
 // Filter categories and their available tags, modelled after the
 // category filter section in the Guitar Rig 7 browser.
 export const FILTER_CATEGORIES = {
@@ -109,6 +120,14 @@ const state = {
   // "Show Component presets" toggle — when true, clicking a tile
   // selects it and lists its dedicated presets below the grid.
   showCompPresets: false,
+  // User presets saved via the toolbar.
+  userPresets: [],
+  // Multi-select for user presets (Shift+click).
+  selectedPresets: new Set(),
+  // Custom user-defined filter tags, merged with FILTER_CATEGORIES.
+  customTags: {},  // { categoryName: [tagName, ...] }
+  // Dirty flag — set when the rack is modified after loading a preset.
+  dirty: false,
 };
 
 // Flat list of Component categories per the Guitar Rig 7 manual.
@@ -129,15 +148,24 @@ function favoriteColor(p) {
 // MATCHING
 // ------------------------------------------------------------
 
+function allPresetTags(p) {
+  const base = [...(p.c || []), ...(p.g || []), ...(p.a || [])];
+  if (p.filterTags) {
+    for (const tags of Object.values(p.filterTags)) base.push(...tags);
+  }
+  return base;
+}
+
 function presetMatchesFilters(p, opts = {}) {
-  if (state.userContent) return false; // no user presets in the demo library
+  if (state.userContent && !p.isUser) return false;
+  if (!state.userContent && p.isUser) return false;
   if (state.search) {
     if (!p.name.toLowerCase().includes(state.search.toLowerCase())) return false;
   }
   if (state.activeColors.size && !state.activeColors.has(favoriteColor(p))) return false;
   const tagsOverride = opts.tags || state.activeTags;
   if (tagsOverride.size) {
-    const all = [...(p.c || []), ...(p.g || []), ...(p.a || [])];
+    const all = allPresetTags(p);
     for (const tag of tagsOverride) {
       if (!all.includes(tag)) return false;
     }
@@ -151,7 +179,7 @@ function presetMatchesFilters(p, opts = {}) {
 function tagMatchCount(tag) {
   const simulated = new Set(state.activeTags);
   simulated.add(tag);
-  return LIBRARY_PRESETS.filter(p => presetMatchesFilters(p, { tags: simulated })).length;
+  return allPresets().filter(p => presetMatchesFilters(p, { tags: simulated })).length;
 }
 
 function clearAllFilters() {
@@ -221,8 +249,12 @@ function sortPresets(list) {
   return out;
 }
 
+function allPresets() {
+  return [...LIBRARY_PRESETS, ...state.userPresets];
+}
+
 function filteredPresets() {
-  return sortPresets(LIBRARY_PRESETS.filter(presetMatchesFilters));
+  return sortPresets(allPresets().filter(presetMatchesFilters));
 }
 
 // ------------------------------------------------------------
@@ -318,9 +350,10 @@ function renderCategoryFilters() {
     if (open) {
       const pills = document.createElement('div');
       pills.className = 'browser-cat-pills';
-      tags.forEach(tag => {
+      mergedCategoryTags(cat).forEach(tag => {
         const n = tagMatchCount(tag);
         const isActive = state.activeTags.has(tag);
+        const isCustom = (state.customTags[cat] || []).includes(tag);
         const b = document.createElement('button');
         b.className = 'browser-tag-pill'
           + (isActive ? ' active' : '')
@@ -337,6 +370,24 @@ function renderCategoryFilters() {
           renderCategoryFilters();
           renderResults();
         });
+        if (isCustom) {
+          b.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            state.customTags[cat] = state.customTags[cat].filter(t => t !== tag);
+            state.activeTags.delete(tag);
+            state.userPresets.forEach(up => {
+              if (up.filterTags && up.filterTags[cat]) {
+                up.filterTags[cat] = up.filterTags[cat].filter(t => t !== tag);
+              }
+            });
+            renderActiveFilters();
+            renderCategoryFilters();
+            renderResults();
+            renderInfoPane();
+            toast('Deleted tag: ' + tag);
+          });
+        }
         pills.appendChild(b);
       });
       wrap.appendChild(pills);
@@ -395,19 +446,32 @@ function renderPresetResults() {
   const presets = filteredPresets();
   presets.forEach(p => {
     const d = document.createElement('div');
-    d.className = 'preset-item' + (p.name === state.selectedPreset ? ' active' : '');
+    const isSelected = state.selectedPresets.has(p.name);
+    d.className = 'preset-item'
+      + (p.name === state.selectedPreset ? ' active' : '')
+      + (isSelected ? ' multi-selected' : '');
     const favCol = favoriteColor(p);
     const favClass = state.favorites.has(p.name) ? ' preset-color-fav' : '';
+    const userBadge = p.isUser ? '<span class="preset-user-badge">USER</span>' : '';
     d.innerHTML = `
       <span class="preset-color${favClass}" style="background:${favCol}"></span>
       <span class="preset-name">${p.name}</span>
+      ${userBadge}
     `;
-    d.addEventListener('click', () => {
+    d.addEventListener('click', (e) => {
+      if (e.shiftKey && p.isUser) {
+        if (state.selectedPresets.has(p.name)) state.selectedPresets.delete(p.name);
+        else state.selectedPresets.add(p.name);
+      } else {
+        state.selectedPresets.clear();
+      }
       state.selectedPreset = p.name;
       renderPresetResults();
       renderInfoPane();
-      const nameEl = document.getElementById('presetName');
-      if (nameEl) nameEl.textContent = p.name;
+      updatePresetDisplay();
+    });
+    d.addEventListener('dblclick', () => {
+      loadPreset(p.name);
     });
     // Right-click → Favorites context menu
     d.addEventListener('contextmenu', (e) => {
@@ -438,37 +502,48 @@ function openFavoritesMenu(x, y, preset) {
   closeFavoritesMenu();
   const menu = document.createElement('div');
   menu.className = 'fav-menu';
-  menu.innerHTML = '<div class="fav-menu-title">Assign Favorite</div>';
 
-  const swatches = document.createElement('div');
-  swatches.className = 'fav-menu-swatches';
+  // Named color items (matching the manual's color list)
   COLORS.forEach(c => {
-    const s = document.createElement('button');
-    s.className = 'fav-menu-swatch';
-    if (favoriteColor(preset) === c) s.classList.add('active');
-    s.style.background = c;
-    s.title = 'Set favorite color';
-    s.addEventListener('click', (ev) => {
+    const item = document.createElement('button');
+    item.className = 'fav-menu-color-item' + (favoriteColor(preset) === c ? ' active' : '');
+    item.innerHTML = `<span class="fav-menu-color-dot" style="background:${c}"></span><span>${COLOR_NAMES[c] || c}</span>`;
+    item.addEventListener('click', (ev) => {
       ev.stopPropagation();
       state.favorites.set(preset.name, c);
       closeFavoritesMenu();
       renderPresetResults();
     });
-    swatches.appendChild(s);
+    menu.appendChild(item);
   });
-  menu.appendChild(swatches);
 
-  const clear = document.createElement('button');
-  clear.className = 'fav-menu-clear';
-  clear.textContent = state.favorites.has(preset.name) ? 'Clear favorite' : 'No favorite set';
-  clear.disabled = !state.favorites.has(preset.name);
-  clear.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    state.favorites.delete(preset.name);
-    closeFavoritesMenu();
-    renderPresetResults();
-  });
-  menu.appendChild(clear);
+  // Separator + management items for user presets
+  if (preset.isUser) {
+    const sep = document.createElement('div');
+    sep.className = 'fav-menu-sep';
+    menu.appendChild(sep);
+
+    const delItem = document.createElement('button');
+    delItem.className = 'fav-menu-action-item';
+    const count = state.selectedPresets.size > 1 ? state.selectedPresets.size : 1;
+    delItem.textContent = 'Delete Preset';
+    delItem.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      closeFavoritesMenu();
+      openDeletePresetDialog(count);
+    });
+    menu.appendChild(delItem);
+
+    const showItem = document.createElement('button');
+    showItem.className = 'fav-menu-action-item';
+    showItem.textContent = 'Show in Finder';
+    showItem.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      closeFavoritesMenu();
+      toast('Not available in web edition');
+    });
+    menu.appendChild(showItem);
+  }
 
   // Clamp to viewport
   document.body.appendChild(menu);
@@ -490,8 +565,47 @@ function openFavoritesMenu(x, y, preset) {
 }
 
 // ------------------------------------------------------------
+// DELETE PRESET
+// ------------------------------------------------------------
+
+function openDeletePresetDialog(count) {
+  const dlg = document.getElementById('deletePresetDialog');
+  if (!dlg) return;
+  const msg = dlg.querySelector('#deletePresetMsg');
+  if (msg) msg.textContent = `The ${count} selected item${count > 1 ? 's' : ''} will be removed from the library and deleted from disk.`;
+  dlg.classList.add('open');
+}
+
+export function confirmDeletePreset() {
+  const targets = state.selectedPresets.size > 0
+    ? [...state.selectedPresets]
+    : [state.selectedPreset];
+  targets.forEach(name => {
+    const idx = state.userPresets.findIndex(p => p.name === name);
+    if (idx >= 0) state.userPresets.splice(idx, 1);
+    state.favorites.delete(name);
+  });
+  if (targets.includes(state.selectedPreset)) {
+    state.selectedPreset = LIBRARY_PRESETS[0]?.name || '';
+  }
+  state.selectedPresets.clear();
+  const dlg = document.getElementById('deletePresetDialog');
+  if (dlg) dlg.classList.remove('open');
+  updatePresetDisplay();
+  renderResults();
+  renderInfoPane();
+  toast(`Deleted ${targets.length} preset${targets.length > 1 ? 's' : ''}`);
+}
+
+// ------------------------------------------------------------
 // INFO PANE
 // ------------------------------------------------------------
+
+function mergedCategoryTags(cat) {
+  const base = FILTER_CATEGORIES[cat] || [];
+  const custom = state.customTags[cat] || [];
+  return [...base, ...custom.filter(t => !base.includes(t))];
+}
 
 function renderInfoPane() {
   const pane = document.getElementById('browserInfoPane');
@@ -499,13 +613,22 @@ function renderInfoPane() {
   pane.classList.toggle('open', state.infoOpen);
   if (!state.infoOpen) return;
 
-  const p = LIBRARY_PRESETS.find(x => x.name === state.selectedPreset);
+  const p = allPresets().find(x => x.name === state.selectedPreset);
   const body = pane.querySelector('.browser-info-body');
   if (!body) return;
   if (!p) {
     body.innerHTML = '<div class="browser-info-empty">Select a preset to see its tags.</div>';
     return;
   }
+
+  if (p.isUser) {
+    renderUserInfoPane(body, p);
+  } else {
+    renderLibraryInfoPane(body, p);
+  }
+}
+
+function renderLibraryInfoPane(body, p) {
   const tagRow = (label, tags) => {
     if (!tags || !tags.length) return '';
     const pills = tags.map(t => `<span class="info-tag-pill">${t}</span>`).join('');
@@ -525,6 +648,154 @@ function renderInfoPane() {
       <div class="info-pills">${state.favorites.has(p.name) ? 'User override' : 'Library default'}</div>
     </div>
   `;
+}
+
+function renderUserInfoPane(body, p) {
+  body.innerHTML = '';
+
+  // Editable name row
+  const nameRow = document.createElement('div');
+  nameRow.className = 'info-header info-header-editable';
+  const favCol = favoriteColor(p);
+  nameRow.innerHTML = `<span class="preset-color" style="background:${favCol}"></span>`;
+  const nameSpan = document.createElement('strong');
+  nameSpan.className = 'info-editable-name';
+  nameSpan.textContent = p.name;
+  nameSpan.title = 'Double-click to rename';
+  const penBtn = document.createElement('button');
+  penBtn.className = 'info-pen-btn';
+  penBtn.innerHTML = '✎';
+  penBtn.title = 'Rename preset';
+  const startRename = () => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'info-rename-input';
+    input.value = p.name;
+    nameSpan.replaceWith(input);
+    penBtn.style.display = 'none';
+    input.focus();
+    input.select();
+    const finish = () => {
+      const newName = input.value.trim();
+      if (newName && newName !== p.name) {
+        const old = p.name;
+        p.name = newName;
+        if (state.selectedPreset === old) state.selectedPreset = newName;
+        if (state.favorites.has(old)) {
+          state.favorites.set(newName, state.favorites.get(old));
+          state.favorites.delete(old);
+        }
+        p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        updatePresetDisplay();
+        renderResults();
+      }
+      renderInfoPane();
+    };
+    input.addEventListener('blur', finish);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+  };
+  nameSpan.addEventListener('dblclick', startRename);
+  penBtn.addEventListener('click', startRename);
+  nameRow.appendChild(nameSpan);
+  nameRow.appendChild(penBtn);
+  body.appendChild(nameRow);
+
+  // Filter tag categories
+  Object.keys(FILTER_CATEGORIES).forEach(cat => {
+    const section = document.createElement('div');
+    section.className = 'info-tag-section';
+    const label = document.createElement('div');
+    label.className = 'info-tag-section-label';
+    label.textContent = cat.toUpperCase();
+    section.appendChild(label);
+
+    const pills = document.createElement('div');
+    pills.className = 'info-pills info-pills-editable';
+    const assigned = (p.filterTags && p.filterTags[cat]) || [];
+    mergedCategoryTags(cat).forEach(tag => {
+      const pill = document.createElement('button');
+      pill.className = 'info-tag-pill' + (assigned.includes(tag) ? ' active' : '');
+      pill.textContent = tag;
+      pill.addEventListener('click', () => {
+        if (!p.filterTags) p.filterTags = {};
+        if (!p.filterTags[cat]) p.filterTags[cat] = [];
+        const idx = p.filterTags[cat].indexOf(tag);
+        if (idx >= 0) p.filterTags[cat].splice(idx, 1);
+        else p.filterTags[cat].push(tag);
+        p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        renderInfoPane();
+        renderCategoryFilters();
+      });
+      pills.appendChild(pill);
+    });
+
+    // + button for custom tags
+    const addBtn = document.createElement('button');
+    addBtn.className = 'info-tag-add-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add a custom filter tag';
+    addBtn.addEventListener('click', () => {
+      addBtn.style.display = 'none';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'info-tag-add-input';
+      input.placeholder = 'Tag name';
+      pills.appendChild(input);
+      input.focus();
+      const finish = () => {
+        const tagName = input.value.trim();
+        if (tagName) {
+          if (!state.customTags[cat]) state.customTags[cat] = [];
+          if (!state.customTags[cat].includes(tagName) && !FILTER_CATEGORIES[cat].includes(tagName)) {
+            state.customTags[cat].push(tagName);
+          }
+          if (!p.filterTags) p.filterTags = {};
+          if (!p.filterTags[cat]) p.filterTags[cat] = [];
+          if (!p.filterTags[cat].includes(tagName)) p.filterTags[cat].push(tagName);
+          p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          renderCategoryFilters();
+        }
+        renderInfoPane();
+      };
+      input.addEventListener('blur', finish);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+    });
+    pills.appendChild(addBtn);
+    section.appendChild(pills);
+    body.appendChild(section);
+  });
+
+  // Metadata fields
+  const metaFields = [
+    { key: 'vendor',  label: 'Vendor' },
+    { key: 'author',  label: 'Author' },
+    { key: 'comment', label: 'Comment' },
+  ];
+  metaFields.forEach(({ key, label }) => {
+    const row = document.createElement('div');
+    row.className = 'info-row info-meta-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'info-label';
+    lbl.textContent = label;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'info-meta-input';
+    input.value = p[key] || '';
+    input.placeholder = `Enter ${label.toLowerCase()}...`;
+    input.addEventListener('change', () => {
+      p[key] = input.value.trim();
+      p.modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    });
+    row.appendChild(lbl);
+    row.appendChild(input);
+    body.appendChild(row);
+  });
+
+  // Read-only metadata
+  const modRow = document.createElement('div');
+  modRow.className = 'info-row';
+  modRow.innerHTML = `<div class="info-label">Modified</div><div class="info-pills">${p.modified || '—'}</div>`;
+  body.appendChild(modRow);
 }
 
 function componentMatchesFilters(id, reg) {
@@ -602,14 +873,18 @@ function renderComponentResults() {
     tile.addEventListener('click', () => {
       state.selectedComponentId = id;
       if (state.showCompPresets) {
-        // In Show Component presets mode, a click only selects;
-        // the preset list below handles adding to the rack.
         renderComponentResults();
       } else {
         addComponentById(id);
         renderComponentResults();
         toast('Added: ' + reg.name);
       }
+    });
+    // Drag-and-drop to rack
+    tile.draggable = true;
+    tile.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', id);
+      e.dataTransfer.effectAllowed = 'copy';
     });
     grid.appendChild(tile);
   });
@@ -674,6 +949,159 @@ function renderModeTabs() {
 }
 
 // ------------------------------------------------------------
+// PRESET LOADING + NAVIGATION
+// ------------------------------------------------------------
+
+function updatePresetDisplay() {
+  const nameEl = document.getElementById('presetName');
+  if (nameEl) {
+    nameEl.textContent = state.dirty
+      ? state.selectedPreset + ' *'
+      : state.selectedPreset;
+  }
+}
+
+export function loadPreset(name) {
+  state.selectedPreset = name;
+  state.dirty = false;
+  updatePresetDisplay();
+  renderPresetResults();
+  renderInfoPane();
+  toast('Loaded: ' + name);
+}
+
+export function prevPreset() {
+  const list = filteredPresets();
+  if (!list.length) return;
+  const idx = list.findIndex(p => p.name === state.selectedPreset);
+  const prev = idx > 0 ? idx - 1 : list.length - 1;
+  loadPreset(list[prev].name);
+}
+
+export function nextPreset() {
+  const list = filteredPresets();
+  if (!list.length) return;
+  const idx = list.findIndex(p => p.name === state.selectedPreset);
+  const next = idx < list.length - 1 ? idx + 1 : 0;
+  loadPreset(list[next].name);
+}
+
+export function shufflePreset() {
+  const list = filteredPresets();
+  if (list.length <= 1) return;
+  let pick;
+  do { pick = list[Math.floor(Math.random() * list.length)]; }
+  while (pick.name === state.selectedPreset && list.length > 1);
+  loadPreset(pick.name);
+}
+
+export function markDirty() {
+  if (!state.dirty) {
+    state.dirty = true;
+    updatePresetDisplay();
+  }
+}
+
+// ------------------------------------------------------------
+// USER PRESETS
+// ------------------------------------------------------------
+
+export function openSaveNewPresetDialog() {
+  const dlg = document.getElementById('savePresetDialog');
+  if (!dlg) return;
+  const input = dlg.querySelector('#savePresetNameInput');
+  if (input) input.value = 'My User Preset';
+  dlg.classList.add('open');
+  if (input) input.focus();
+}
+
+function makeUserPreset(name) {
+  return {
+    name, color: '#88dd22', c: [], g: [], a: [], isUser: true,
+    filterTags: {},  // { categoryName: [tagName, ...] }
+    comment: '', author: '', vendor: '',
+    modified: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  };
+}
+
+export function confirmSaveNewPreset() {
+  const dlg = document.getElementById('savePresetDialog');
+  const input = dlg ? dlg.querySelector('#savePresetNameInput') : null;
+  const name = (input ? input.value : '').trim();
+  if (!name) { toast('Enter a name'); return; }
+  const existing = state.userPresets.findIndex(p => p.name === name);
+  if (existing >= 0) {
+    state.userPresets[existing].modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  } else {
+    state.userPresets.push(makeUserPreset(name));
+  }
+  state.selectedPreset = name;
+  state.dirty = false;
+  if (dlg) dlg.classList.remove('open');
+  updatePresetDisplay();
+  renderResults();
+  toast('Saved: ' + name);
+}
+
+export function importUserPreset(name) {
+  if (!state.userPresets.find(p => p.name === name)) {
+    state.userPresets.push(makeUserPreset(name));
+  }
+  state.selectedPreset = name;
+  state.dirty = false;
+  updatePresetDisplay();
+  renderResults();
+}
+
+export function isUserPresetLoaded() {
+  return state.userPresets.some(p => p.name === state.selectedPreset);
+}
+
+export function savePreset() {
+  const cur = state.userPresets.find(p => p.name === state.selectedPreset);
+  if (!cur) {
+    openSaveNewPresetDialog();
+    return;
+  }
+  state.dirty = false;
+  updatePresetDisplay();
+  toast('Saved: ' + cur.name);
+}
+
+// Keyboard nav for the Results list.
+function handleResultsKeydown(e) {
+  if (state.mode !== 'presets') return;
+  const list = filteredPresets();
+  if (!list.length) return;
+  const idx = list.findIndex(p => p.name === state.selectedPreset);
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = idx < list.length - 1 ? idx + 1 : 0;
+    state.selectedPreset = list[next].name;
+    updatePresetDisplay();
+    renderPresetResults();
+    scrollSelectedIntoView();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = idx > 0 ? idx - 1 : list.length - 1;
+    state.selectedPreset = list[prev].name;
+    updatePresetDisplay();
+    renderPresetResults();
+    scrollSelectedIntoView();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    loadPreset(state.selectedPreset);
+  }
+}
+
+function scrollSelectedIntoView() {
+  const listEl = document.getElementById('presetList');
+  if (!listEl) return;
+  const active = listEl.querySelector('.preset-item.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+// ------------------------------------------------------------
 // PUBLIC API
 // ------------------------------------------------------------
 
@@ -716,6 +1144,14 @@ export function initBrowser() {
       renderInfoPane();
     });
   }
+  const infoClose = document.getElementById('browserInfoClose');
+  if (infoClose) {
+    infoClose.addEventListener('click', () => {
+      state.infoOpen = false;
+      if (infoBtn) infoBtn.classList.remove('active');
+      renderInfoPane();
+    });
+  }
 
   // Show Component presets toggle
   const showPresetsBtn = document.getElementById('browserShowCompPresetsBtn');
@@ -727,6 +1163,49 @@ export function initBrowser() {
       renderResults();
     });
   }
+
+  // Save New Preset dialog
+  const saveDlg = document.getElementById('savePresetDialog');
+  if (saveDlg) {
+    saveDlg.querySelector('#savePresetOk')?.addEventListener('click', confirmSaveNewPreset);
+    saveDlg.querySelectorAll('[data-close]').forEach(b =>
+      b.addEventListener('click', () => saveDlg.classList.remove('open')));
+    const nameInput = saveDlg.querySelector('#savePresetNameInput');
+    if (nameInput) nameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmSaveNewPreset(); }
+    });
+  }
+
+  // Component drag-and-drop to rack
+  const rackEl = document.getElementById('compContainer');
+  if (rackEl) {
+    rackEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      rackEl.classList.add('drag-over');
+    });
+    rackEl.addEventListener('dragleave', () => rackEl.classList.remove('drag-over'));
+    rackEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      rackEl.classList.remove('drag-over');
+      const compId = e.dataTransfer.getData('text/plain');
+      if (compId && COMPONENT_REGISTRY[compId]) {
+        addComponentById(compId);
+        toast('Added: ' + COMPONENT_REGISTRY[compId].name);
+      }
+    });
+  }
+
+  // Delete Preset dialog
+  const delDlg = document.getElementById('deletePresetDialog');
+  if (delDlg) {
+    delDlg.querySelector('#deletePresetOk')?.addEventListener('click', confirmDeletePreset);
+    delDlg.querySelectorAll('[data-close]').forEach(b =>
+      b.addEventListener('click', () => delDlg.classList.remove('open')));
+  }
+
+  // Keyboard navigation for the Results list
+  document.addEventListener('keydown', handleResultsKeydown);
 
   renderModeTabs();
   renderColorFilters();

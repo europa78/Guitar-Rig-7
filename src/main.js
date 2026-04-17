@@ -14,7 +14,9 @@ import { engine, selected } from './app-state.js';
 import { toast } from './ui/toast.js';
 import { renderRack, updateSignalFlow, selectComponent, removeComponent } from './ui/rack.js';
 import { updateInfoPane } from './ui/info-pane.js';
-import { initBrowser } from './ui/browser.js';
+import { initBrowser, prevPreset, nextPreset, shufflePreset,
+         savePreset, openSaveNewPresetDialog, markDirty,
+         importUserPreset, isUserPresetLoaded } from './ui/browser.js';
 
 import {
   registerComponent,
@@ -23,6 +25,7 @@ import {
   deserializeComponent,
   restoreRack,
   pushHistory,
+  history,
   undo,
   redo,
 } from './components/registry.js';
@@ -168,18 +171,23 @@ async function handleMenuAction(action) {
           const data = JSON.parse(text);
           pushHistory();
           restoreRack(data.components || []);
-          document.getElementById('presetName').textContent = data.name || file.name.replace(/\.[^.]+$/, '');
-          toast('Opened: ' + file.name);
+          const pName = data.name || file.name.replace(/\.[^.]+$/, '');
+          importUserPreset(pName);
+          toast('Imported: ' + pName);
         } catch (err) { toast('Invalid preset file'); }
       });
       inp.click();
       break;
     }
     case 'save-preset':
+      savePreset();
+      break;
     case 'save-preset-as':
+      openSaveNewPresetDialog();
+      break;
     case 'export-preset': {
       const data = {
-        name: document.getElementById('presetName').textContent,
+        name: document.getElementById('presetName').textContent.replace(/ \*$/, ''),
         version: 1,
         components: serializeRack(),
       };
@@ -229,6 +237,7 @@ function updatePrefsDialog() {
 // ============================================================
 async function boot() {
   initBrowser();
+  history.onDirty = markDirty;
   await engine.init();
   engine.addComponent(new FastComp());
   engine.addComponent(new BassPro());
@@ -266,6 +275,11 @@ async function boot() {
         const rect = item.getBoundingClientRect();
         sub.style.left = rect.right + 'px';
         sub.style.top = rect.top + 'px';
+        // Disable Save when no user preset is loaded
+        if (item.dataset.sub === 'fileSub') {
+          const saveItem = sub.querySelector('[data-action="save-preset"]');
+          if (saveItem) saveItem.classList.toggle('disabled', !isUserPresetLoaded());
+        }
         sub.classList.add('open');
       }
     });
@@ -285,6 +299,7 @@ async function boot() {
   Object.values(submenus).forEach(sub => {
     sub.querySelectorAll('.main-menu-item').forEach(item => {
       item.addEventListener('click', () => {
+        if (item.classList.contains('disabled')) return;
         handleMenuAction(item.dataset.action);
         closeAllMenus();
       });
@@ -531,9 +546,41 @@ async function boot() {
   });
   document.getElementById('stopBtn').addEventListener('click', () => engine.stopFile());
 
-  // Preset nav (cosmetic stubs)
-  document.getElementById('prevPreset').addEventListener('click', () => toast('Previous preset'));
-  document.getElementById('nextPreset').addEventListener('click', () => toast('Next preset'));
+  // Preset toolbar
+  document.getElementById('prevPreset').addEventListener('click', prevPreset);
+  document.getElementById('nextPreset').addEventListener('click', nextPreset);
+  document.getElementById('presetShuffleBtn').addEventListener('click', shufflePreset);
+  document.getElementById('presetSaveBtn').addEventListener('click', savePreset);
+  document.getElementById('presetSaveNewBtn').addEventListener('click', openSaveNewPresetDialog);
+
+  // Show Rack Tools toggle
+  const rackToolsBtn = document.getElementById('showRackToolsBtn');
+  let rackToolsVisible = true;
+  rackToolsBtn.addEventListener('click', () => {
+    rackToolsVisible = !rackToolsVisible;
+    rackToolsBtn.classList.toggle('active', rackToolsVisible);
+    document.querySelectorAll('.section-label.global, #globalFxContainer').forEach(el => {
+      el.style.display = rackToolsVisible ? '' : 'none';
+    });
+    toast(rackToolsVisible ? 'Rack Tools shown' : 'Rack Tools hidden');
+  });
+  rackToolsBtn.classList.add('active');
+
+  // Clear Rack
+  document.getElementById('clearRackBtn').addEventListener('click', () => {
+    handleMenuAction('clear-rack');
+  });
+
+  // Collapse/Expand All
+  const collapseBtn = document.getElementById('collapseAllBtn');
+  let collapsed = false;
+  collapseBtn.addEventListener('click', () => {
+    collapsed = !collapsed;
+    collapseBtn.classList.toggle('active', collapsed);
+    document.getElementById('compContainer').classList.toggle('collapsed', collapsed);
+    document.getElementById('globalFxContainer').classList.toggle('collapsed', collapsed);
+    toast(collapsed ? 'Components collapsed' : 'Components expanded');
+  });
 
   // Master mute
   const sfMuteBtn = document.getElementById('sfMuteBtn');
@@ -657,7 +704,8 @@ async function boot() {
     else if (ctrl && e.key === 'a') { e.preventDefault(); handleMenuAction('select-all'); }
     else if (ctrl && e.key === 'n') { e.preventDefault(); handleMenuAction('new-preset'); }
     else if (ctrl && e.key === 'o') { e.preventDefault(); handleMenuAction('open-preset'); }
-    else if (ctrl && e.key === 's') { e.preventDefault(); handleMenuAction('save-preset'); }
+    else if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); openSaveNewPresetDialog(); }
+    else if (ctrl && e.key === 's') { e.preventDefault(); savePreset(); }
     else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (selected) { e.preventDefault(); handleMenuAction('delete'); }
     }

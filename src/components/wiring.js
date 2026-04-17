@@ -11,7 +11,7 @@ import { engine, selected } from '../app-state.js';
 import { updateInfoPane, COMPONENT_INFO } from '../ui/info-pane.js';
 import { toast } from '../ui/toast.js';
 import { selectComponent, removeComponent, renderRack, updateSignalFlow } from '../ui/rack.js';
-import { pushHistory } from './registry.js';
+import { pushHistory, COMPONENT_REGISTRY } from './registry.js';
 
 export function knobHTML(key, label, displayValue, max, min, val) {
   return `
@@ -126,6 +126,75 @@ export function wireComponent(comp, el) {
     pushHistory();
     removeComponent(comp);
   });
+
+  // ---- Component Preset Selector ----------------------------
+  const presetEl = el.querySelector('.comp-preset');
+  if (presetEl) {
+    const reg = COMPONENT_REGISTRY[comp.id];
+    const presets = reg ? reg.presets : [];
+    if (!comp._currentPresetIdx) comp._currentPresetIdx = 0;
+
+    const updatePresetLabel = () => {
+      const name = presets[comp._currentPresetIdx] || 'INIT';
+      presetEl.innerHTML = `<span class="comp-preset-nav" data-dir="prev">‹</span>` +
+        `<span class="comp-preset-nav" data-dir="next">›</span>` +
+        `<span class="comp-preset-label">${name}</span>` +
+        `<span class="comp-preset-arrow">⌄</span>`;
+    };
+    updatePresetLabel();
+
+    const loadPresetIdx = (idx) => {
+      comp._currentPresetIdx = idx;
+      updatePresetLabel();
+      toast(`${comp.name}: ${presets[idx] || 'INIT'}`);
+    };
+
+    presetEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dir = e.target.dataset?.dir;
+      if (dir === 'prev') {
+        loadPresetIdx(comp._currentPresetIdx > 0 ? comp._currentPresetIdx - 1 : presets.length - 1);
+        return;
+      }
+      if (dir === 'next') {
+        loadPresetIdx(comp._currentPresetIdx < presets.length - 1 ? comp._currentPresetIdx + 1 : 0);
+        return;
+      }
+      // Toggle dropdown
+      let dropdown = el.querySelector('.comp-preset-dropdown');
+      if (dropdown) { dropdown.remove(); return; }
+      dropdown = document.createElement('div');
+      dropdown.className = 'comp-preset-dropdown';
+
+      const saveAs = document.createElement('button');
+      saveAs.className = 'comp-preset-dropdown-item save-as';
+      saveAs.textContent = 'Save As';
+      saveAs.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        dropdown.remove();
+        toast(`${comp.name}: Save As — not available in web edition`);
+      });
+      dropdown.appendChild(saveAs);
+
+      presets.forEach((p, i) => {
+        const item = document.createElement('button');
+        item.className = 'comp-preset-dropdown-item' + (i === comp._currentPresetIdx ? ' active' : '');
+        item.textContent = p;
+        item.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          dropdown.remove();
+          loadPresetIdx(i);
+        });
+        dropdown.appendChild(item);
+      });
+      presetEl.appendChild(dropdown);
+
+      const closeDrop = (ev) => {
+        if (!presetEl.contains(ev.target)) { dropdown.remove(); document.removeEventListener('click', closeDrop); }
+      };
+      setTimeout(() => document.addEventListener('click', closeDrop));
+    });
+  }
 
   // ---- Drag to reorder --------------------------------------
   header.addEventListener('dragstart', (e) => {
