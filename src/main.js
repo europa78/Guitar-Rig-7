@@ -553,6 +553,35 @@ async function boot() {
   document.getElementById('presetSaveBtn').addEventListener('click', savePreset);
   document.getElementById('presetSaveNewBtn').addEventListener('click', openSaveNewPresetDialog);
 
+  // Show Rack Tools toggle
+  const rackToolsBtn = document.getElementById('showRackToolsBtn');
+  let rackToolsVisible = true;
+  rackToolsBtn.addEventListener('click', () => {
+    rackToolsVisible = !rackToolsVisible;
+    rackToolsBtn.classList.toggle('active', rackToolsVisible);
+    document.querySelectorAll('.section-label.global, #globalFxContainer').forEach(el => {
+      el.style.display = rackToolsVisible ? '' : 'none';
+    });
+    toast(rackToolsVisible ? 'Rack Tools shown' : 'Rack Tools hidden');
+  });
+  rackToolsBtn.classList.add('active');
+
+  // Clear Rack
+  document.getElementById('clearRackBtn').addEventListener('click', () => {
+    handleMenuAction('clear-rack');
+  });
+
+  // Collapse/Expand All
+  const collapseBtn = document.getElementById('collapseAllBtn');
+  let collapsed = false;
+  collapseBtn.addEventListener('click', () => {
+    collapsed = !collapsed;
+    collapseBtn.classList.toggle('active', collapsed);
+    document.getElementById('compContainer').classList.toggle('collapsed', collapsed);
+    document.getElementById('globalFxContainer').classList.toggle('collapsed', collapsed);
+    toast(collapsed ? 'Components collapsed' : 'Components expanded');
+  });
+
   // Master mute
   const sfMuteBtn = document.getElementById('sfMuteBtn');
   let muted = false;
