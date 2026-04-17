@@ -16,7 +16,7 @@ import { renderRack, updateSignalFlow, selectComponent, removeComponent } from '
 import { updateInfoPane } from './ui/info-pane.js';
 import { initBrowser, prevPreset, nextPreset, shufflePreset,
          savePreset, openSaveNewPresetDialog, markDirty,
-         importUserPreset } from './ui/browser.js';
+         importUserPreset, isUserPresetLoaded } from './ui/browser.js';
 
 import {
   registerComponent,
@@ -275,6 +275,11 @@ async function boot() {
         const rect = item.getBoundingClientRect();
         sub.style.left = rect.right + 'px';
         sub.style.top = rect.top + 'px';
+        // Disable Save when no user preset is loaded
+        if (item.dataset.sub === 'fileSub') {
+          const saveItem = sub.querySelector('[data-action="save-preset"]');
+          if (saveItem) saveItem.classList.toggle('disabled', !isUserPresetLoaded());
+        }
         sub.classList.add('open');
       }
     });
@@ -294,6 +299,7 @@ async function boot() {
   Object.values(submenus).forEach(sub => {
     sub.querySelectorAll('.main-menu-item').forEach(item => {
       item.addEventListener('click', () => {
+        if (item.classList.contains('disabled')) return;
         handleMenuAction(item.dataset.action);
         closeAllMenus();
       });

@@ -34,6 +34,17 @@ export const COLORS = [
   '#22ddaa', '#2288dd', '#6644ff', '#cc44ff',
 ];
 
+export const COLOR_NAMES = {
+  '#ff4444': 'Orange',
+  '#ff8800': 'Warm Yellow',
+  '#ffdd00': 'Lime',
+  '#88dd22': 'Mint',
+  '#22ddaa': 'Cyan',
+  '#2288dd': 'Plum',
+  '#6644ff': 'Purple',
+  '#cc44ff': 'Fuchsia',
+};
+
 // Filter categories and their available tags, modelled after the
 // category filter section in the Guitar Rig 7 browser.
 export const FILTER_CATEGORIES = {
@@ -111,6 +122,8 @@ const state = {
   showCompPresets: false,
   // User presets saved via the toolbar.
   userPresets: [],
+  // Multi-select for user presets (Shift+click).
+  selectedPresets: new Set(),
   // Custom user-defined filter tags, merged with FILTER_CATEGORIES.
   customTags: {},  // { categoryName: [tagName, ...] }
   // Dirty flag — set when the rack is modified after loading a preset.
@@ -433,7 +446,10 @@ function renderPresetResults() {
   const presets = filteredPresets();
   presets.forEach(p => {
     const d = document.createElement('div');
-    d.className = 'preset-item' + (p.name === state.selectedPreset ? ' active' : '');
+    const isSelected = state.selectedPresets.has(p.name);
+    d.className = 'preset-item'
+      + (p.name === state.selectedPreset ? ' active' : '')
+      + (isSelected ? ' multi-selected' : '');
     const favCol = favoriteColor(p);
     const favClass = state.favorites.has(p.name) ? ' preset-color-fav' : '';
     const userBadge = p.isUser ? '<span class="preset-user-badge">USER</span>' : '';
@@ -442,7 +458,13 @@ function renderPresetResults() {
       <span class="preset-name">${p.name}</span>
       ${userBadge}
     `;
-    d.addEventListener('click', () => {
+    d.addEventListener('click', (e) => {
+      if (e.shiftKey && p.isUser) {
+        if (state.selectedPresets.has(p.name)) state.selectedPresets.delete(p.name);
+        else state.selectedPresets.add(p.name);
+      } else {
+        state.selectedPresets.clear();
+      }
       state.selectedPreset = p.name;
       renderPresetResults();
       renderInfoPane();
@@ -480,37 +502,48 @@ function openFavoritesMenu(x, y, preset) {
   closeFavoritesMenu();
   const menu = document.createElement('div');
   menu.className = 'fav-menu';
-  menu.innerHTML = '<div class="fav-menu-title">Assign Favorite</div>';
 
-  const swatches = document.createElement('div');
-  swatches.className = 'fav-menu-swatches';
+  // Named color items (matching the manual's color list)
   COLORS.forEach(c => {
-    const s = document.createElement('button');
-    s.className = 'fav-menu-swatch';
-    if (favoriteColor(preset) === c) s.classList.add('active');
-    s.style.background = c;
-    s.title = 'Set favorite color';
-    s.addEventListener('click', (ev) => {
+    const item = document.createElement('button');
+    item.className = 'fav-menu-color-item' + (favoriteColor(preset) === c ? ' active' : '');
+    item.innerHTML = `<span class="fav-menu-color-dot" style="background:${c}"></span><span>${COLOR_NAMES[c] || c}</span>`;
+    item.addEventListener('click', (ev) => {
       ev.stopPropagation();
       state.favorites.set(preset.name, c);
       closeFavoritesMenu();
       renderPresetResults();
     });
-    swatches.appendChild(s);
+    menu.appendChild(item);
   });
-  menu.appendChild(swatches);
 
-  const clear = document.createElement('button');
-  clear.className = 'fav-menu-clear';
-  clear.textContent = state.favorites.has(preset.name) ? 'Clear favorite' : 'No favorite set';
-  clear.disabled = !state.favorites.has(preset.name);
-  clear.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    state.favorites.delete(preset.name);
-    closeFavoritesMenu();
-    renderPresetResults();
-  });
-  menu.appendChild(clear);
+  // Separator + management items for user presets
+  if (preset.isUser) {
+    const sep = document.createElement('div');
+    sep.className = 'fav-menu-sep';
+    menu.appendChild(sep);
+
+    const delItem = document.createElement('button');
+    delItem.className = 'fav-menu-action-item';
+    const count = state.selectedPresets.size > 1 ? state.selectedPresets.size : 1;
+    delItem.textContent = 'Delete Preset';
+    delItem.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      closeFavoritesMenu();
+      openDeletePresetDialog(count);
+    });
+    menu.appendChild(delItem);
+
+    const showItem = document.createElement('button');
+    showItem.className = 'fav-menu-action-item';
+    showItem.textContent = 'Show in Finder';
+    showItem.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      closeFavoritesMenu();
+      toast('Not available in web edition');
+    });
+    menu.appendChild(showItem);
+  }
 
   // Clamp to viewport
   document.body.appendChild(menu);
@@ -529,6 +562,39 @@ function openFavoritesMenu(x, y, preset) {
   });
   menu.addEventListener('click', (ev) => ev.stopPropagation());
   menu.addEventListener('contextmenu', (ev) => ev.stopPropagation());
+}
+
+// ------------------------------------------------------------
+// DELETE PRESET
+// ------------------------------------------------------------
+
+function openDeletePresetDialog(count) {
+  const dlg = document.getElementById('deletePresetDialog');
+  if (!dlg) return;
+  const msg = dlg.querySelector('#deletePresetMsg');
+  if (msg) msg.textContent = `The ${count} selected item${count > 1 ? 's' : ''} will be removed from the library and deleted from disk.`;
+  dlg.classList.add('open');
+}
+
+export function confirmDeletePreset() {
+  const targets = state.selectedPresets.size > 0
+    ? [...state.selectedPresets]
+    : [state.selectedPreset];
+  targets.forEach(name => {
+    const idx = state.userPresets.findIndex(p => p.name === name);
+    if (idx >= 0) state.userPresets.splice(idx, 1);
+    state.favorites.delete(name);
+  });
+  if (targets.includes(state.selectedPreset)) {
+    state.selectedPreset = LIBRARY_PRESETS[0]?.name || '';
+  }
+  state.selectedPresets.clear();
+  const dlg = document.getElementById('deletePresetDialog');
+  if (dlg) dlg.classList.remove('open');
+  updatePresetDisplay();
+  renderResults();
+  renderInfoPane();
+  toast(`Deleted ${targets.length} preset${targets.length > 1 ? 's' : ''}`);
 }
 
 // ------------------------------------------------------------
@@ -807,14 +873,18 @@ function renderComponentResults() {
     tile.addEventListener('click', () => {
       state.selectedComponentId = id;
       if (state.showCompPresets) {
-        // In Show Component presets mode, a click only selects;
-        // the preset list below handles adding to the rack.
         renderComponentResults();
       } else {
         addComponentById(id);
         renderComponentResults();
         toast('Added: ' + reg.name);
       }
+    });
+    // Drag-and-drop to rack
+    tile.draggable = true;
+    tile.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', id);
+      e.dataTransfer.effectAllowed = 'copy';
     });
     grid.appendChild(tile);
   });
@@ -983,6 +1053,10 @@ export function importUserPreset(name) {
   renderResults();
 }
 
+export function isUserPresetLoaded() {
+  return state.userPresets.some(p => p.name === state.selectedPreset);
+}
+
 export function savePreset() {
   const cur = state.userPresets.find(p => p.name === state.selectedPreset);
   if (!cur) {
@@ -1100,6 +1174,34 @@ export function initBrowser() {
     if (nameInput) nameInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); confirmSaveNewPreset(); }
     });
+  }
+
+  // Component drag-and-drop to rack
+  const rackEl = document.getElementById('compContainer');
+  if (rackEl) {
+    rackEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      rackEl.classList.add('drag-over');
+    });
+    rackEl.addEventListener('dragleave', () => rackEl.classList.remove('drag-over'));
+    rackEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      rackEl.classList.remove('drag-over');
+      const compId = e.dataTransfer.getData('text/plain');
+      if (compId && COMPONENT_REGISTRY[compId]) {
+        addComponentById(compId);
+        toast('Added: ' + COMPONENT_REGISTRY[compId].name);
+      }
+    });
+  }
+
+  // Delete Preset dialog
+  const delDlg = document.getElementById('deletePresetDialog');
+  if (delDlg) {
+    delDlg.querySelector('#deletePresetOk')?.addEventListener('click', confirmDeletePreset);
+    delDlg.querySelectorAll('[data-close]').forEach(b =>
+      b.addEventListener('click', () => delDlg.classList.remove('open')));
   }
 
   // Keyboard navigation for the Results list

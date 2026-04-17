@@ -965,48 +965,63 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    padding: 8px;
-    min-width: 140px;
+    padding: 4px 0;
+    min-width: 150px;
     font-size: 10px;
   }
-  .fav-menu-title {
-    font-size: 9px;
-    letter-spacing: 0.6px;
-    color: var(--text-mute);
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .fav-menu-swatches {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    margin-bottom: 8px;
-  }
-  .fav-menu-swatch {
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.15);
-    cursor: pointer;
-    padding: 0;
-    transition: transform 0.1s ease;
-  }
-  .fav-menu-swatch:hover { transform: scale(1.15); }
-  .fav-menu-swatch.active {
-    box-shadow: 0 0 0 2px var(--bg-1), 0 0 0 3px var(--accent);
-  }
-  .fav-menu-clear {
+  .fav-menu-color-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
-    padding: 5px 6px;
-    font-size: 10px;
+    padding: 5px 14px;
+    font-size: 11px;
     color: var(--text-dim);
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 2px;
+    background: transparent;
+    border: none;
     cursor: pointer;
     font-family: inherit;
+    text-align: left;
   }
-  .fav-menu-clear:hover:not(:disabled) { color: var(--text); background: var(--bg-3); }
-  .fav-menu-clear:disabled { opacity: 0.4; cursor: not-allowed; }
+  .fav-menu-color-item:hover { background: var(--bg-2); color: var(--text); }
+  .fav-menu-color-item.active { color: var(--text); font-weight: 600; }
+  .fav-menu-color-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .fav-menu-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .fav-menu-action-item {
+    display: block;
+    width: 100%;
+    padding: 5px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+  }
+  .fav-menu-action-item:hover { background: var(--bg-2); color: var(--text); }
+
+  /* Multi-select */
+  .preset-item.multi-selected {
+    background: var(--bg-2);
+    border-left-color: var(--accent);
+  }
+
+  /* Drag-over indicator for rack */
+  #compContainer.drag-over {
+    outline: 2px dashed var(--accent, #6aa3ff);
+    outline-offset: -2px;
+    background: rgba(106, 163, 255, 0.04);
+  }
 
   /* Info pane */
   .browser-info-pane {
