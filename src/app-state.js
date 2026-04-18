@@ -10,4 +10,33 @@ import { AudioEngine } from './audio/engine.js';
 export const engine = new AudioEngine();
 
 export let selected = null;
+export const selectedSet = new Set();
+
 export function setSelected(c) { selected = c; }
+
+export function selectSingle(c) {
+  selectedSet.clear();
+  if (c) selectedSet.add(c);
+  selected = c;
+}
+
+export function toggleInSelection(c) {
+  if (selectedSet.has(c)) {
+    selectedSet.delete(c);
+    if (selected === c) {
+      selected = selectedSet.size ? [...selectedSet][selectedSet.size - 1] : null;
+    }
+  } else {
+    selectedSet.add(c);
+    selected = c;
+  }
+}
+
+export function clearSelection() {
+  selectedSet.clear();
+  selected = null;
+}
+
+export function isInSelection(c) {
+  return selectedSet.has(c);
+}

@@ -7,7 +7,7 @@
 //                 component: knobs, bypass, mono toggle, close,
 //                 drag-reorder, click-to-select, hover-info.
 
-import { engine, selected } from '../app-state.js';
+import { engine, selected, isInSelection } from '../app-state.js';
 import { updateInfoPane, COMPONENT_INFO } from '../ui/info-pane.js';
 import { toast } from '../ui/toast.js';
 import { selectComponent, removeComponent, renderRack, updateSignalFlow } from '../ui/rack.js';
@@ -121,11 +121,42 @@ export function wireComponent(comp, el) {
   });
 
   // ---- Close button -----------------------------------------
+  const settingsBtn = el.querySelectorAll('.comp-btn')[1];
   const closeBtn = el.querySelectorAll('.comp-btn')[2];
   closeBtn.addEventListener('click', () => {
     pushHistory();
     removeComponent(comp);
   });
+
+  // ---- Collapse/Expand ----------------------------------------
+  const collapseBtn = document.createElement('button');
+  collapseBtn.className = 'comp-btn comp-collapse';
+  collapseBtn.title = 'Collapse/Expand';
+  collapseBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6 L8 10 L12 6"/></svg>`;
+  bypassBtn.insertAdjacentElement('afterend', collapseBtn);
+  collapseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isCollapsed = el.classList.toggle('comp-collapsed');
+    collapseBtn.classList.toggle('active', isCollapsed);
+  });
+
+  // ---- Expert Panel toggle ------------------------------------
+  settingsBtn.className = 'comp-btn comp-expert-btn';
+  settingsBtn.title = 'Show Expert Panel';
+  settingsBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="10" height="10" rx="1"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="8.5" x2="10" y2="8.5"/><line x1="6" y1="11" x2="8" y2="11"/></svg>`;
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = el.classList.toggle('expert-open');
+    settingsBtn.classList.toggle('active', isOpen);
+    toast(`${comp.name}: Expert Panel ${isOpen ? 'shown' : 'hidden'}`);
+  });
+  if (!el.querySelector('.comp-expert-panel')) {
+    const expertPanel = document.createElement('div');
+    expertPanel.className = 'comp-expert-panel';
+    expertPanel.innerHTML = '<em>Expert controls — available in future update</em>';
+    const body = el.querySelector('.comp-body');
+    if (body) body.insertAdjacentElement('afterend', expertPanel);
+  }
 
   // ---- Component Preset Selector ----------------------------
   const presetEl = el.querySelector('.comp-preset');
@@ -196,36 +227,74 @@ export function wireComponent(comp, el) {
     });
   }
 
-  // ---- Drag to reorder --------------------------------------
+  // ---- Drag to reorder / delete ------------------------------
   header.addEventListener('dragstart', (e) => {
     el.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/x-rack-component', comp.id);
     e.dataTransfer.setData('text/plain', comp.id);
   });
-  header.addEventListener('dragend', () => el.classList.remove('dragging'));
+  header.addEventListener('dragend', (e) => {
+    el.classList.remove('dragging');
+    if (e.dataTransfer.dropEffect === 'none') {
+      pushHistory();
+      removeComponent(comp);
+      toast(`Removed: ${comp.name}`);
+    }
+  });
   el.addEventListener('dragover', (e) => {
     e.preventDefault();
-    el.classList.add('drag-over');
+    el.classList.remove('drop-above', 'drop-below', 'drop-replace');
+    if (e.dataTransfer.types.includes('application/x-rack-component')) {
+      const rect = el.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      el.classList.add(e.clientY < midY ? 'drop-above' : 'drop-below');
+    } else {
+      el.classList.add('drop-replace');
+    }
   });
-  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('dragleave', () => {
+    el.classList.remove('drop-above', 'drop-below', 'drop-replace');
+  });
   el.addEventListener('drop', (e) => {
     e.preventDefault();
-    el.classList.remove('drag-over');
-    const draggedId = e.dataTransfer.getData('text/plain');
-    const fromIdx = engine.components.findIndex(c => c.id === draggedId);
-    const toIdx = engine.components.findIndex(c => c.id === comp.id);
-    if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
-      pushHistory();
-      engine.moveComponent(fromIdx, toIdx);
-      renderRack();
-      updateSignalFlow();
+    el.classList.remove('drop-above', 'drop-below', 'drop-replace');
+    if (e.dataTransfer.types.includes('application/x-rack-component')) {
+      const draggedId = e.dataTransfer.getData('application/x-rack-component');
+      const fromIdx = engine.components.findIndex(c => c.id === draggedId);
+      const toIdx = engine.components.findIndex(c => c.id === comp.id);
+      if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+        pushHistory();
+        engine.moveComponent(fromIdx, toIdx);
+        renderRack();
+        updateSignalFlow();
+      }
+    } else {
+      const compId = e.dataTransfer.getData('text/plain');
+      const reg = COMPONENT_REGISTRY[compId];
+      if (reg) {
+        pushHistory();
+        const Cls = reg.cls();
+        const inst = new Cls();
+        const idx = engine.components.indexOf(comp);
+        if (idx !== -1) {
+          inst._engineRef = engine;
+          inst.build(engine.ctx);
+          engine.components.splice(idx, 1, inst);
+          engine._rebuildChain();
+          renderRack();
+          updateSignalFlow();
+          selectComponent(inst);
+          toast(`Replaced with: ${reg.name}`);
+        }
+      }
     }
   });
 
   // ---- Click to select + hover info -------------------------
   el.addEventListener('click', (e) => {
     if (!e.target.classList.contains('comp-btn')) {
-      selectComponent(comp);
+      selectComponent(comp, e.shiftKey);
     }
   });
   el.addEventListener('mouseenter', () => {

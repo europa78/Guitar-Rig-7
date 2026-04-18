@@ -20,8 +20,8 @@
 //                          the selected preset (toggled from the
 //                          browser footer)
 
-import { engine } from '../app-state.js';
-import { COMPONENT_REGISTRY } from '../components/registry.js';
+import { engine, selected, selectedSet } from '../app-state.js';
+import { COMPONENT_REGISTRY, pushHistory } from '../components/registry.js';
 import { renderRack, updateSignalFlow, selectComponent } from './rack.js';
 import { toast } from './toast.js';
 
@@ -820,15 +820,48 @@ function tileInlineStyle(ts) {
   return parts.join(';');
 }
 
-function addComponentById(id) {
+export function addComponentById(id) {
   const reg = COMPONENT_REGISTRY[id];
   if (!reg) return;
   const Cls = reg.cls();
   const inst = new Cls();
-  engine.addComponent(inst);
+  if (selected) {
+    const idx = engine.components.indexOf(selected);
+    if (idx !== -1) {
+      inst._engineRef = engine;
+      inst.build(engine.ctx);
+      engine.components.splice(idx + 1, 0, inst);
+      engine._rebuildChain();
+    } else {
+      engine.addComponent(inst);
+    }
+  } else {
+    engine.addComponent(inst);
+  }
   renderRack();
   updateSignalFlow();
   selectComponent(inst);
+}
+
+function replaceSelectedComponents(newId) {
+  const targets = selectedSet.size > 0 ? [...selectedSet] : (selected ? [selected] : []);
+  if (!targets.length) { addComponentById(newId); return; }
+  pushHistory();
+  const reg = COMPONENT_REGISTRY[newId];
+  if (!reg) return;
+  targets.forEach(comp => {
+    const idx = engine.components.indexOf(comp);
+    if (idx === -1) return;
+    const Cls = reg.cls();
+    const inst = new Cls();
+    inst._engineRef = engine;
+    inst.build(engine.ctx);
+    engine.components.splice(idx, 1, inst);
+  });
+  engine._rebuildChain();
+  renderRack();
+  updateSignalFlow();
+  toast(`Replaced ${targets.length} component${targets.length > 1 ? 's' : ''} with ${reg.name}`);
 }
 
 function renderComponentResults() {
@@ -869,16 +902,19 @@ function renderComponentResults() {
     tile.innerHTML = `<div class="browser-comp-name">${reg.name}</div>`;
     tile.title = state.showCompPresets
       ? 'Click to view Component presets'
-      : 'Click to add to the rack';
+      : 'Double-click to add to rack · Drag onto a component to replace';
     tile.addEventListener('click', () => {
       state.selectedComponentId = id;
-      if (state.showCompPresets) {
-        renderComponentResults();
+      renderComponentResults();
+    });
+    tile.addEventListener('dblclick', () => {
+      if (selectedSet.size > 0) {
+        replaceSelectedComponents(id);
       } else {
         addComponentById(id);
-        renderComponentResults();
         toast('Added: ' + reg.name);
       }
+      renderComponentResults();
     });
     // Drag-and-drop to rack
     tile.draggable = true;
@@ -1181,13 +1217,18 @@ export function initBrowser() {
   if (rackEl) {
     rackEl.addEventListener('dragover', (e) => {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-      rackEl.classList.add('drag-over');
+      if (e.dataTransfer.types.includes('application/x-rack-component')) {
+        e.dataTransfer.dropEffect = 'move';
+      } else {
+        e.dataTransfer.dropEffect = 'copy';
+        rackEl.classList.add('drag-over');
+      }
     });
     rackEl.addEventListener('dragleave', () => rackEl.classList.remove('drag-over'));
     rackEl.addEventListener('drop', (e) => {
       e.preventDefault();
       rackEl.classList.remove('drag-over');
+      if (e.dataTransfer.types.includes('application/x-rack-component')) return;
       const compId = e.dataTransfer.getData('text/plain');
       if (compId && COMPONENT_REGISTRY[compId]) {
         addComponentById(compId);

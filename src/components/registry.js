@@ -6,7 +6,7 @@
 // not by importing component classes from here.  That inversion breaks
 // what would otherwise be a wiring → registry → component → wiring cycle.
 
-import { engine, setSelected } from '../app-state.js';
+import { engine, setSelected, clearSelection } from '../app-state.js';
 import { toast } from '../ui/toast.js';
 import { renderRack, updateSignalFlow } from '../ui/rack.js';
 
@@ -69,7 +69,7 @@ export function restoreRack(snapshot) {
   rackData.forEach(d => restore(d, engine.components));
   gfxData.forEach(d => restore(d, engine.globalFxComponents));
   engine._rebuildChain();
-  setSelected(null);
+  clearSelection();
   renderRack();
   updateSignalFlow();
 }
