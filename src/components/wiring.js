@@ -7,7 +7,7 @@
 //                 component: knobs, bypass, mono toggle, close,
 //                 drag-reorder, click-to-select, hover-info.
 
-import { engine, selected } from '../app-state.js';
+import { engine, selected, isInSelection } from '../app-state.js';
 import { updateInfoPane, COMPONENT_INFO } from '../ui/info-pane.js';
 import { toast } from '../ui/toast.js';
 import { selectComponent, removeComponent, renderRack, updateSignalFlow } from '../ui/rack.js';
@@ -244,33 +244,57 @@ export function wireComponent(comp, el) {
   });
   el.addEventListener('dragover', (e) => {
     e.preventDefault();
-    const rect = el.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    el.classList.remove('drop-above', 'drop-below');
-    el.classList.add(e.clientY < midY ? 'drop-above' : 'drop-below');
+    el.classList.remove('drop-above', 'drop-below', 'drop-replace');
+    if (e.dataTransfer.types.includes('application/x-rack-component')) {
+      const rect = el.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      el.classList.add(e.clientY < midY ? 'drop-above' : 'drop-below');
+    } else {
+      el.classList.add('drop-replace');
+    }
   });
   el.addEventListener('dragleave', () => {
-    el.classList.remove('drop-above', 'drop-below');
+    el.classList.remove('drop-above', 'drop-below', 'drop-replace');
   });
   el.addEventListener('drop', (e) => {
     e.preventDefault();
-    el.classList.remove('drop-above', 'drop-below');
-    const draggedId = e.dataTransfer.getData('application/x-rack-component')
-      || e.dataTransfer.getData('text/plain');
-    const fromIdx = engine.components.findIndex(c => c.id === draggedId);
-    const toIdx = engine.components.findIndex(c => c.id === comp.id);
-    if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
-      pushHistory();
-      engine.moveComponent(fromIdx, toIdx);
-      renderRack();
-      updateSignalFlow();
+    el.classList.remove('drop-above', 'drop-below', 'drop-replace');
+    if (e.dataTransfer.types.includes('application/x-rack-component')) {
+      const draggedId = e.dataTransfer.getData('application/x-rack-component');
+      const fromIdx = engine.components.findIndex(c => c.id === draggedId);
+      const toIdx = engine.components.findIndex(c => c.id === comp.id);
+      if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+        pushHistory();
+        engine.moveComponent(fromIdx, toIdx);
+        renderRack();
+        updateSignalFlow();
+      }
+    } else {
+      const compId = e.dataTransfer.getData('text/plain');
+      const reg = COMPONENT_REGISTRY[compId];
+      if (reg) {
+        pushHistory();
+        const Cls = reg.cls();
+        const inst = new Cls();
+        const idx = engine.components.indexOf(comp);
+        if (idx !== -1) {
+          inst._engineRef = engine;
+          inst.build(engine.ctx);
+          engine.components.splice(idx, 1, inst);
+          engine._rebuildChain();
+          renderRack();
+          updateSignalFlow();
+          selectComponent(inst);
+          toast(`Replaced with: ${reg.name}`);
+        }
+      }
     }
   });
 
   // ---- Click to select + hover info -------------------------
   el.addEventListener('click', (e) => {
     if (!e.target.classList.contains('comp-btn')) {
-      selectComponent(comp);
+      selectComponent(comp, e.shiftKey);
     }
   });
   el.addEventListener('mouseenter', () => {

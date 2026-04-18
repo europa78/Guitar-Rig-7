@@ -10,9 +10,9 @@
 
 // styles.css is loaded via the <link> tag in index.html
 
-import { engine, selected } from './app-state.js';
+import { engine, selected, selectedSet, selectSingle, clearSelection, isInSelection } from './app-state.js';
 import { toast } from './ui/toast.js';
-import { renderRack, updateSignalFlow, selectComponent, removeComponent } from './ui/rack.js';
+import { renderRack, updateSignalFlow, selectComponent, removeComponent, refreshSelectionUI } from './ui/rack.js';
 import { updateInfoPane } from './ui/info-pane.js';
 import { initBrowser, prevPreset, nextPreset, shufflePreset,
          savePreset, openSaveNewPresetDialog, markDirty,
@@ -105,46 +105,83 @@ async function handleMenuAction(action) {
   switch (action) {
     case 'undo': undo(); break;
     case 'redo': redo(); break;
-    case 'cut':
-      if (!selected) { toast('No component selected'); return; }
-      componentClipboard = serializeComponent(selected);
+    case 'cut': {
+      const cutTargets = selectedSet.size > 0 ? [...selectedSet] : (selected ? [selected] : []);
+      if (!cutTargets.length) { toast('No component selected'); return; }
+      componentClipboard = cutTargets.map(c => serializeComponent(c));
       pushHistory();
-      removeComponent(selected);
-      toast('Cut: ' + componentClipboard.id);
-      break;
-    case 'copy':
-      if (!selected) { toast('No component selected'); return; }
-      componentClipboard = serializeComponent(selected);
-      toast('Copied: ' + componentClipboard.id);
-      break;
-    case 'paste': {
-      if (!componentClipboard) { toast('Clipboard empty'); return; }
-      pushHistory();
-      const c = deserializeComponent(componentClipboard);
-      if (c) {
-        c._engineRef = engine;
-        c.build(engine.ctx);
-        if (c._pendingParams) Object.entries(c._pendingParams).forEach(([k, v]) => c.setParam(k, v));
-        const insertIdx = selected ? engine.components.indexOf(selected) + 1 : engine.components.length;
-        engine.components.splice(insertIdx, 0, c);
-        engine._rebuildChain();
-        renderRack();
-        updateSignalFlow();
-        selectComponent(c);
-        toast('Pasted: ' + c.id);
-      }
+      cutTargets.forEach(c => {
+        let idx = engine.components.indexOf(c);
+        if (idx !== -1) { engine.components.splice(idx, 1); return; }
+        idx = engine.globalFxComponents.indexOf(c);
+        if (idx !== -1) engine.globalFxComponents.splice(idx, 1);
+      });
+      engine._rebuildChain();
+      clearSelection();
+      renderRack();
+      updateSignalFlow();
+      toast(`Cut ${cutTargets.length} component${cutTargets.length > 1 ? 's' : ''}`);
       break;
     }
-    case 'delete':
-      if (!selected) { toast('No component selected'); return; }
+    case 'copy': {
+      const copyTargets = selectedSet.size > 0 ? [...selectedSet] : (selected ? [selected] : []);
+      if (!copyTargets.length) { toast('No component selected'); return; }
+      componentClipboard = copyTargets.map(c => serializeComponent(c));
+      toast(`Copied ${copyTargets.length} component${copyTargets.length > 1 ? 's' : ''}`);
+      break;
+    }
+    case 'paste': {
+      if (!componentClipboard || !componentClipboard.length) { toast('Clipboard empty'); return; }
       pushHistory();
-      removeComponent(selected);
-      toast('Deleted');
+      const clips = Array.isArray(componentClipboard) ? componentClipboard : [componentClipboard];
+      let insertIdx = selected ? engine.components.indexOf(selected) + 1 : engine.components.length;
+      const pasted = [];
+      clips.forEach(data => {
+        const c = deserializeComponent(data);
+        if (c) {
+          c._engineRef = engine;
+          c.build(engine.ctx);
+          if (c._pendingParams) Object.entries(c._pendingParams).forEach(([k, v]) => c.setParam(k, v));
+          engine.components.splice(insertIdx, 0, c);
+          insertIdx++;
+          pasted.push(c);
+        }
+      });
+      engine._rebuildChain();
+      renderRack();
+      updateSignalFlow();
+      if (pasted.length) selectComponent(pasted[pasted.length - 1]);
+      toast(`Pasted ${pasted.length} component${pasted.length > 1 ? 's' : ''}`);
       break;
-    case 'select-all':
-      toast('Select All — single-selection model (select last)');
-      if (engine.components.length) selectComponent(engine.components[engine.components.length - 1]);
+    }
+    case 'delete': {
+      const delTargets = selectedSet.size > 0 ? [...selectedSet] : (selected ? [selected] : []);
+      if (!delTargets.length) { toast('No component selected'); return; }
+      pushHistory();
+      delTargets.forEach(c => {
+        let idx = engine.components.indexOf(c);
+        if (idx !== -1) { engine.components.splice(idx, 1); return; }
+        idx = engine.globalFxComponents.indexOf(c);
+        if (idx !== -1) engine.globalFxComponents.splice(idx, 1);
+      });
+      engine._rebuildChain();
+      clearSelection();
+      renderRack();
+      updateSignalFlow();
+      toast(`Deleted ${delTargets.length} component${delTargets.length > 1 ? 's' : ''}`);
       break;
+    }
+    case 'select-all': {
+      const last = engine.components.length
+        ? engine.components[engine.components.length - 1]
+        : (engine.globalFxComponents.length ? engine.globalFxComponents[engine.globalFxComponents.length - 1] : null);
+      if (last) selectSingle(last);
+      engine.components.forEach(c => selectedSet.add(c));
+      engine.globalFxComponents.forEach(c => selectedSet.add(c));
+      refreshSelectionUI();
+      toast(`Selected ${selectedSet.size} components`);
+      break;
+    }
     case 'clear-rack':
       if (confirm('Clear all components from the rack and Global FX?')) {
         pushHistory();
@@ -656,13 +693,17 @@ async function boot() {
     menu.appendChild(addItem);
     menu.appendChild(mkSep());
 
+    const hasSelection = selectedSet.size > 0 || !!selected;
     menu.appendChild(mkItem('Undo', { kb: 'Ctrl+Z', disabled: history.pointer <= 0, action: () => handleMenuAction('undo') }));
+    menu.appendChild(mkItem('Redo', { kb: 'Ctrl+Y', disabled: history.pointer >= history.stack.length - 1, action: () => handleMenuAction('redo') }));
     menu.appendChild(mkSep());
 
-    menu.appendChild(mkItem('Cut', { kb: 'Ctrl+X', disabled: !selected, action: () => handleMenuAction('cut') }));
-    menu.appendChild(mkItem('Copy', { kb: 'Ctrl+C', disabled: !selected, action: () => handleMenuAction('copy') }));
+    menu.appendChild(mkItem('Cut', { kb: 'Ctrl+X', disabled: !hasSelection, action: () => handleMenuAction('cut') }));
+    menu.appendChild(mkItem('Copy', { kb: 'Ctrl+C', disabled: !hasSelection, action: () => handleMenuAction('copy') }));
     menu.appendChild(mkItem('Paste', { kb: 'Ctrl+V', disabled: !componentClipboard, action: () => handleMenuAction('paste') }));
-    menu.appendChild(mkItem('Delete', { kb: 'Del', disabled: !selected, action: () => handleMenuAction('delete') }));
+    menu.appendChild(mkItem('Delete', { kb: 'Del', disabled: !hasSelection, action: () => handleMenuAction('delete') }));
+    menu.appendChild(mkSep());
+    menu.appendChild(mkItem('Select All', { kb: 'Ctrl+A', action: () => handleMenuAction('select-all') }));
     menu.appendChild(mkSep());
 
     ['Clean up Automation List', 'Clear Global MIDI Controls',
@@ -682,6 +723,15 @@ async function boot() {
 
   document.getElementById('rack').addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    const compEl = e.target.closest('.comp');
+    if (compEl) {
+      const compId = compEl.dataset.id;
+      const comp = engine.components.find(c => c.id === compId)
+        || engine.globalFxComponents.find(c => c.id === compId);
+      if (comp && !isInSelection(comp)) {
+        selectComponent(comp);
+      }
+    }
     openRackContextMenu(e.clientX, e.clientY);
   });
 

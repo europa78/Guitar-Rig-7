@@ -7,7 +7,7 @@
 // selectComponent   — marks a component as the active selection
 // removeComponent   — removes a component from the engine + UI
 
-import { engine, selected, setSelected } from '../app-state.js';
+import { engine, selected, setSelected, selectedSet, selectSingle, toggleInSelection, isInSelection } from '../app-state.js';
 import { updateInfoPane } from './info-pane.js';
 
 export function renderRack() {
@@ -49,7 +49,7 @@ export function updateSignalFlow() {
     const block = document.createElement('div');
     block.className = 'sf-block'
       + (c.bypassed ? ' bypassed' : '')
-      + (selected === c ? ' selected' : '');
+      + (isInSelection(c) ? ' selected' : '');
     block.textContent = c.name;
     block.addEventListener('click', () => selectComponent(c));
     el.appendChild(block);
@@ -84,13 +84,22 @@ export function updateSignalFlow() {
   }
 }
 
-export function selectComponent(comp) {
-  setSelected(comp);
-  updateSignalFlow();
+export function selectComponent(comp, multi = false) {
+  if (multi) {
+    toggleInSelection(comp);
+  } else {
+    selectSingle(comp);
+  }
+  refreshSelectionUI();
+  updateInfoPane({ component: selected });
+}
+
+export function refreshSelectionUI() {
+  const selIds = new Set([...selectedSet].map(c => c.id));
   document.querySelectorAll('.comp').forEach(el => {
-    el.classList.toggle('selected', el.dataset.id === comp.id);
+    el.classList.toggle('selected', selIds.has(el.dataset.id));
   });
-  updateInfoPane({ component: comp });
+  updateSignalFlow();
 }
 
 export function removeComponent(comp) {
@@ -103,7 +112,10 @@ export function removeComponent(comp) {
   if (idx === -1) return;
   arr.splice(idx, 1);
   engine._rebuildChain();
-  if (selected === comp) setSelected(null);
+  selectedSet.delete(comp);
+  if (selected === comp) {
+    setSelected(selectedSet.size ? [...selectedSet][selectedSet.size - 1] : null);
+  }
   renderRack();
   updateSignalFlow();
 }
