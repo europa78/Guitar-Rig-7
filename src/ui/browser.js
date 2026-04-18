@@ -820,7 +820,7 @@ function tileInlineStyle(ts) {
   return parts.join(';');
 }
 
-function addComponentById(id) {
+export function addComponentById(id) {
   const reg = COMPONENT_REGISTRY[id];
   if (!reg) return;
   const Cls = reg.cls();
@@ -1181,13 +1181,18 @@ export function initBrowser() {
   if (rackEl) {
     rackEl.addEventListener('dragover', (e) => {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-      rackEl.classList.add('drag-over');
+      if (e.dataTransfer.types.includes('application/x-rack-component')) {
+        e.dataTransfer.dropEffect = 'move';
+      } else {
+        e.dataTransfer.dropEffect = 'copy';
+        rackEl.classList.add('drag-over');
+      }
     });
     rackEl.addEventListener('dragleave', () => rackEl.classList.remove('drag-over'));
     rackEl.addEventListener('drop', (e) => {
       e.preventDefault();
       rackEl.classList.remove('drag-over');
+      if (e.dataTransfer.types.includes('application/x-rack-component')) return;
       const compId = e.dataTransfer.getData('text/plain');
       if (compId && COMPONENT_REGISTRY[compId]) {
         addComponentById(compId);

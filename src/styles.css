@@ -1921,6 +1921,86 @@
     box-shadow: 0 0 0 1px var(--accent), 0 4px 12px rgba(255,176,32,0.2);
   }
 
+  /* Per-component collapsed state */
+  .comp.comp-collapsed .comp-body,
+  .comp.comp-collapsed .comp-expert-panel { display: none; }
+  .comp.comp-collapsed { min-height: 0; }
+  .comp-collapse svg { transition: transform 0.15s ease; }
+  .comp-collapse.active svg { transform: rotate(180deg); }
+
+  /* Expert Panel */
+  .comp-expert-panel {
+    padding: 10px 16px;
+    background: linear-gradient(180deg, #1a1a1e, #141416);
+    border-top: 1px solid var(--border);
+    display: none;
+    font-size: 10px;
+    color: var(--text-mute);
+    font-style: italic;
+  }
+  .comp.expert-open .comp-expert-panel { display: block; }
+  .comp-expert-btn.active { color: var(--accent); }
+
+  /* Drop position indicator (yellow line) */
+  .comp.drop-above {
+    border-top: 2px solid #ffdd00 !important;
+  }
+  .comp.drop-below {
+    border-bottom: 2px solid #ffdd00 !important;
+  }
+
+  /* Rack context menu */
+  .rack-ctx-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-2);
+    border: 1px solid var(--border-hot);
+    border-radius: 4px;
+    min-width: 240px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    padding: 4px 0;
+  }
+  .rack-ctx-item {
+    padding: 7px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .rack-ctx-item:hover { background: var(--bg-3); color: var(--text); }
+  .rack-ctx-item.disabled { color: var(--text-mute); cursor: default; }
+  .rack-ctx-item.disabled:hover { background: transparent; color: var(--text-mute); }
+  .rack-ctx-item .kb {
+    font-size: 9px;
+    color: var(--text-mute);
+    font-family: monospace;
+    margin-left: 16px;
+  }
+  .rack-ctx-item.has-sub::after {
+    content: '›';
+    font-size: 14px;
+    color: var(--text-mute);
+    margin-left: 10px;
+  }
+  .rack-ctx-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .rack-ctx-submenu {
+    position: fixed;
+    z-index: 1001;
+    background: var(--bg-2);
+    border: 1px solid var(--border-hot);
+    border-radius: 4px;
+    min-width: 160px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    padding: 4px 0;
+  }
+  .rack-ctx-submenu .rack-ctx-item.has-sub::after { content: '›'; }
+
   .toast {
     position: fixed;
     bottom: 20px; left: 50%;

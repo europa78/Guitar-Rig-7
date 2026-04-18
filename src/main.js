@@ -16,7 +16,8 @@ import { renderRack, updateSignalFlow, selectComponent, removeComponent } from '
 import { updateInfoPane } from './ui/info-pane.js';
 import { initBrowser, prevPreset, nextPreset, shufflePreset,
          savePreset, openSaveNewPresetDialog, markDirty,
-         importUserPreset, isUserPresetLoaded } from './ui/browser.js';
+         importUserPreset, isUserPresetLoaded,
+         addComponentById, COMPONENT_CATEGORIES } from './ui/browser.js';
 
 import {
   registerComponent,
@@ -580,6 +581,122 @@ async function boot() {
     document.getElementById('compContainer').classList.toggle('collapsed', collapsed);
     document.getElementById('globalFxContainer').classList.toggle('collapsed', collapsed);
     toast(collapsed ? 'Components collapsed' : 'Components expanded');
+  });
+
+  // ========== RACK CONTEXT MENU ==========
+  let _rackCtxEls = [];
+  function closeRackCtx() {
+    _rackCtxEls.forEach(el => el.remove());
+    _rackCtxEls = [];
+    document.removeEventListener('click', closeRackCtx);
+    document.removeEventListener('contextmenu', closeRackCtx);
+  }
+
+  function openRackContextMenu(x, y) {
+    closeRackCtx();
+    const menu = document.createElement('div');
+    menu.className = 'rack-ctx-menu';
+    _rackCtxEls.push(menu);
+
+    const mkItem = (label, opts = {}) => {
+      const item = document.createElement('div');
+      item.className = 'rack-ctx-item'
+        + (opts.disabled ? ' disabled' : '')
+        + (opts.hasSub ? ' has-sub' : '');
+      item.innerHTML = label + (opts.kb ? ` <span class="kb">${opts.kb}</span>` : '');
+      if (opts.action && !opts.disabled) {
+        item.addEventListener('click', () => { closeRackCtx(); opts.action(); });
+      }
+      return item;
+    };
+    const mkSep = () => { const s = document.createElement('div'); s.className = 'rack-ctx-sep'; return s; };
+
+    // Add Component ›
+    const addItem = mkItem('Add Component', { hasSub: true });
+    let addSub = null;
+    addItem.addEventListener('mouseenter', () => {
+      if (addSub) return;
+      addSub = document.createElement('div');
+      addSub.className = 'rack-ctx-submenu';
+      _rackCtxEls.push(addSub);
+      const cats = {};
+      Object.entries(COMPONENT_REGISTRY).forEach(([id, reg]) => {
+        if (!cats[reg.category]) cats[reg.category] = [];
+        cats[reg.category].push({ id, name: reg.name });
+      });
+      COMPONENT_CATEGORIES.forEach(cat => {
+        const comps = cats[cat] || [];
+        const catItem = mkItem(cat, { hasSub: comps.length > 0, disabled: !comps.length });
+        if (comps.length) {
+          let catSub = null;
+          catItem.addEventListener('mouseenter', () => {
+            _rackCtxEls.forEach(el => { if (el.classList.contains('rack-ctx-catsub')) el.remove(); });
+            _rackCtxEls = _rackCtxEls.filter(el => !el.classList.contains('rack-ctx-catsub'));
+            catSub = document.createElement('div');
+            catSub.className = 'rack-ctx-submenu rack-ctx-catsub';
+            _rackCtxEls.push(catSub);
+            comps.forEach(c => {
+              catSub.appendChild(mkItem(c.name, {
+                action: () => { addComponentById(c.id); toast('Added: ' + c.name); }
+              }));
+            });
+            const r = catItem.getBoundingClientRect();
+            document.body.appendChild(catSub);
+            catSub.style.left = Math.min(r.right, window.innerWidth - 170) + 'px';
+            catSub.style.top = Math.min(r.top, window.innerHeight - catSub.offsetHeight - 8) + 'px';
+          });
+        }
+        addSub.appendChild(catItem);
+      });
+      const r = addItem.getBoundingClientRect();
+      document.body.appendChild(addSub);
+      addSub.style.left = Math.min(r.right, window.innerWidth - 170) + 'px';
+      addSub.style.top = Math.min(r.top, window.innerHeight - addSub.offsetHeight - 8) + 'px';
+    });
+    menu.appendChild(addItem);
+    menu.appendChild(mkSep());
+
+    menu.appendChild(mkItem('Undo', { kb: 'Ctrl+Z', disabled: history.pointer <= 0, action: () => handleMenuAction('undo') }));
+    menu.appendChild(mkSep());
+
+    menu.appendChild(mkItem('Cut', { kb: 'Ctrl+X', disabled: !selected, action: () => handleMenuAction('cut') }));
+    menu.appendChild(mkItem('Copy', { kb: 'Ctrl+C', disabled: !selected, action: () => handleMenuAction('copy') }));
+    menu.appendChild(mkItem('Paste', { kb: 'Ctrl+V', disabled: !componentClipboard, action: () => handleMenuAction('paste') }));
+    menu.appendChild(mkItem('Delete', { kb: 'Del', disabled: !selected, action: () => handleMenuAction('delete') }));
+    menu.appendChild(mkSep());
+
+    ['Clean up Automation List', 'Clear Global MIDI Controls',
+     'Save Global MIDI Controls as Default', 'Load Default Global MIDI Controls',
+     'MIDI Controls List'].forEach(label => {
+      menu.appendChild(mkItem(label, { action: () => toast(label + ' — not available in web edition') }));
+    });
+
+    document.body.appendChild(menu);
+    menu.style.left = Math.min(x, window.innerWidth - menu.offsetWidth - 8) + 'px';
+    menu.style.top = Math.min(y, window.innerHeight - menu.offsetHeight - 8) + 'px';
+    setTimeout(() => {
+      document.addEventListener('click', closeRackCtx);
+      document.addEventListener('contextmenu', closeRackCtx);
+    });
+  }
+
+  document.getElementById('rack').addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    openRackContextMenu(e.clientX, e.clientY);
+  });
+
+  // Rack-level drag handler (accept rack-internal drops on empty area)
+  const rackRoot = document.getElementById('rack');
+  rackRoot.addEventListener('dragover', (e) => {
+    if (e.dataTransfer.types.includes('application/x-rack-component')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  });
+  rackRoot.addEventListener('drop', (e) => {
+    if (e.dataTransfer.types.includes('application/x-rack-component')) {
+      e.preventDefault();
+    }
   });
 
   // Master mute
